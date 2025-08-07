@@ -1,0 +1,14 @@
+mobile-interface
+2
+1
+viewer
+4
+3
+datalog-dmz
+5
+datalog-dmz,datalogs
+
+datalog-business
+4
+5
+datalog-dmz,datalogs
