@@ -25,58 +25,88 @@ A modern TUI application built with Bubble Tea that generates HCL configuration 
 ### Build and run:
 ```bash
 go build -o envhcl
+
+# Create new configuration
+./envhcl -output terraform.hcl
+
+# Edit existing configuration
+./envhcl -input existing.hcl -output terraform.hcl
+
+# Edit in-place (reads and writes to same file)
 ./envhcl -output terraform.hcl
 ```
 
 ### Command line options:
+- `-input`: Input HCL file to read and edit (optional)
 - `-output`: Output HCL file path (default: "terraform.hcl")
+
+### Smart Input Detection:
+If no `-input` is specified but the output file exists, the application will automatically read from the output file for editing.
 
 ## Interactive Workflow
 
+### New Configuration:
 1. **Service Name Input**: Enter the name of your Cloud Run service
-2. **Feature Selection**: 
-   - Navigate with ↑/↓ arrow keys
-   - Select features with Space
-   - Some features prompt for additional details (Firebase roles, bucket names)
-3. **Add More Services**: Repeat for additional services  
-4. **Configuration Summary**: Review your complete configuration
-5. **Generate HCL**: Confirm to create the Terraform file
+2. **Feature Selection**: Choose features with visual checkboxes
+3. **Add More Services**: Repeat for additional services
+4. **Configuration Summary**: Review and generate HCL
+
+### Edit Existing Configuration:
+1. **Service List**: Browse existing services with feature counts
+2. **Edit/Add/Delete**: Modify services or add new ones
+3. **Live Editing**: Changes are applied to existing configuration
+4. **Summary & Save**: Review changes and update the HCL file
 
 ## Navigation Controls
 
-- **↑/↓ or j/k**: Navigate through options
+### Service List Screen:
+- **↑/↓ or j/k**: Navigate through services
+- **Enter**: Edit selected service or add new service
+- **d**: Delete selected service
+- **s**: Go to summary/save screen
+- **Esc**: Quit application
+
+### Feature Selection:
+- **↑/↓ or j/k**: Navigate through features
 - **Space**: Select/deselect features
-- **Enter**: Confirm input or proceed to next screen
-- **Esc**: Go back to previous screen
-- **Ctrl+C or q**: Quit application
+- **Enter**: Save service configuration
+- **Esc**: Cancel and return to service list
+
+### General:
+- **Ctrl+C or q**: Quit application at any time
 
 ## Example Session Flow
 
+### Service List (when editing existing file):
 ```
 ┌─ HCL Configuration Builder ─┐
 │                             │
-│ Enter Service Name          │ 
+│ Services Configuration      │
 │                             │
-│ Service name: [mobile-api_] │
+│ Existing services:          │
+│ > mobile-interface (3 features) │
+│   datalog-business (2 features) │
+│   Add new service           │
 │                             │
-│ Press Enter to continue     │
+│ ↑/↓ navigate, Enter edit/add, d delete, s summary │
 └─────────────────────────────┘
 ```
 
+### Feature Selection:
 ```
-┌─ Configure Features for: mobile-api ─┐
-│                                      │
-│ > [✓] Firebase Auth (requires role)  │
-│   [ ] Cloud Run Invoker permissions  │
-│   [✓] Storage bucket creator access  │
-│   [✓] Firestore database access      │
-│   [ ] Storage bucket reader access   │
-│   [ ] Storage bucket writer access   │
-│   [ ] MySQL database access          │
-│   [ ] PostgreSQL database access     │
-│                                      │
+┌─ Edit Features for: mobile-interface ─┐
+│                                       │
+│ > [✓] Firebase Auth (requires role)   │
+│   [✓] Cloud Run Invoker permissions   │
+│   [✓] Storage bucket creator access   │
+│   [ ] Firestore database access       │
+│   [ ] Storage bucket reader access    │
+│   [ ] Storage bucket writer access    │
+│   [ ] MySQL database access           │
+│   [ ] PostgreSQL database access      │
+│                                       │
 │ ↑/↓ navigate, Space select, Enter save │
-└──────────────────────────────────────┘
+└───────────────────────────────────────┘
 ```
 
 ## Output Format

@@ -8,7 +8,8 @@ import (
 type screen int
 
 const (
-	serviceNameScreen screen = iota
+	serviceListScreen screen = iota
+	serviceNameScreen
 	featureSelectionScreen
 	featureDetailsScreen
 	summaryScreen
@@ -18,6 +19,10 @@ type Model struct {
 	screen         screen
 	outputFile     string
 	config         *Config
+	
+	// Service list
+	servicesCursor int
+	editingService bool
 	
 	// Service input
 	serviceInput   string
@@ -67,10 +72,20 @@ var (
 )
 
 func NewModel(outputFile string) Model {
+	return NewModelWithConfig(outputFile, &Config{Services: make(map[string]Service)})
+}
+
+func NewModelWithConfig(outputFile string, config *Config) Model {
+	// Start with service list if we have existing services, otherwise start with service name input
+	startScreen := serviceListScreen
+	if len(config.Services) == 0 {
+		startScreen = serviceNameScreen
+	}
+	
 	return Model{
-		screen:           serviceNameScreen,
+		screen:           startScreen,
 		outputFile:       outputFile,
-		config:           &Config{Services: make(map[string]Service)},
+		config:           config,
 		selectedFeatures: make(map[string]bool),
 	}
 }
@@ -88,6 +103,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		
 		switch m.screen {
+		case serviceListScreen:
+			return m.updateServiceListScreen(msg)
 		case serviceNameScreen:
 			return m.updateServiceNameScreen(msg)
 		case featureSelectionScreen:
@@ -106,6 +123,8 @@ func (m Model) View() string {
 	var content string
 	
 	switch m.screen {
+	case serviceListScreen:
+		content = m.viewServiceListScreen()
 	case serviceNameScreen:
 		content = m.viewServiceNameScreen()
 	case featureSelectionScreen:

@@ -11,11 +11,25 @@ import (
 
 func main() {
 	var (
+		inputFile  = flag.String("input", "", "Input HCL file to read and edit")
 		outputFile = flag.String("output", "terraform.hcl", "Output HCL file")
 	)
 	flag.Parse()
 
-	m := NewModel(*outputFile)
+	// If no input file specified, try to use the output file as input if it exists
+	if *inputFile == "" && *outputFile != "" {
+		if _, err := os.Stat(*outputFile); err == nil {
+			*inputFile = *outputFile
+		}
+	}
+
+	// Parse existing HCL file if provided
+	config, err := parseHCLFile(*inputFile)
+	if err != nil {
+		log.Fatalf("Error parsing HCL file: %v", err)
+	}
+
+	m := NewModelWithConfig(*outputFile, config)
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	
 	finalModel, err := p.Run()

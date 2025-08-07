@@ -2,28 +2,199 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+// Service List Screen
+func (m Model) updateServiceListScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	services := make([]string, 0, len(m.config.Services))
+	for name := range m.config.Services {
+		services = append(services, name)
+	}
+	sort.Strings(services)
+	
+	switch msg.String() {
+	case "up", "k":
+		if m.servicesCursor > 0 {
+			m.servicesCursor--
+		}
+		return m, nil
+		
+	case "down", "j":
+		if m.servicesCursor < len(services) {
+			m.servicesCursor++
+		}
+		return m, nil
+		
+	case "enter":
+		if m.servicesCursor < len(services) {
+			// Edit existing service
+			serviceName := services[m.servicesCursor]
+			m.currentService = serviceName
+			m.editingService = true
+			m.selectedFeatures = make(map[string]bool)
+			m.loadExistingFeatures(m.config.Services[serviceName])
+			m.screen = featureSelectionScreen
+			return m, nil
+		} else {
+			// Add new service
+			m.editingService = false
+			m.screen = serviceNameScreen
+			return m, nil
+		}
+		
+	case "d":
+		if m.servicesCursor < len(services) {
+			// Delete service
+			serviceName := services[m.servicesCursor]
+			delete(m.config.Services, serviceName)
+			if m.servicesCursor >= len(services)-1 {
+				m.servicesCursor = len(services) - 2
+				if m.servicesCursor < 0 {
+					m.servicesCursor = 0
+				}
+			}
+			return m, nil
+		}
+		return m, nil
+		
+	case "s":
+		// Go to summary
+		m.screen = summaryScreen
+		return m, nil
+		
+	case "esc":
+		if len(m.config.Services) == 0 {
+			return m, tea.Quit
+		}
+		return m, nil
+	}
+	
+	return m, nil
+}
+
+func (m Model) viewServiceListScreen() string {
+	var content strings.Builder
+	
+	content.WriteString(headerStyle.Render("Services Configuration"))
+	content.WriteString("\n\n")
+	
+	services := make([]string, 0, len(m.config.Services))
+	for name := range m.config.Services {
+		services = append(services, name)
+	}
+	sort.Strings(services)
+	
+	if len(services) == 0 {
+		content.WriteString("No services configured yet.\n")
+		content.WriteString(selectedStyle.Render("> Add new service"))
+	} else {
+		content.WriteString("Existing services:\n")
+		for i, serviceName := range services {
+			service := m.config.Services[serviceName]
+			featureCount := m.countFeatures(service.Features)
+			
+			var line string
+			if i == m.servicesCursor {
+				line = selectedStyle.Render(fmt.Sprintf("> %s (%d features)", serviceName, featureCount))
+			} else {
+				line = normalStyle.Render(fmt.Sprintf("  %s (%d features)", serviceName, featureCount))
+			}
+			
+			content.WriteString(line)
+			content.WriteString("\n")
+		}
+		
+		// Add "Add new service" option
+		if m.servicesCursor == len(services) {
+			content.WriteString(selectedStyle.Render("> Add new service"))
+		} else {
+			content.WriteString(normalStyle.Render("  Add new service"))
+		}
+	}
+	
+	content.WriteString("\n\n")
+	content.WriteString(helpStyle.Render("Use ↑/↓ to navigate, Enter to edit/add, d to delete, s for summary, Esc to quit"))
+	
+	return content.String()
+}
+
+func (m Model) countFeatures(features Features) int {
+	count := 0
+	if features.FirebaseAuth != nil {
+		count++
+	}
+	if features.CloudRunInvoker {
+		count++
+	}
+	if len(features.BucketCreator) > 0 {
+		count++
+	}
+	if features.FirestoreAccess {
+		count++
+	}
+	if len(features.BucketReader) > 0 {
+		count++
+	}
+	if len(features.BucketWriter) > 0 {
+		count++
+	}
+	if features.MysqlAccess {
+		count++
+	}
+	if features.PostgresAccess {
+		count++
+	}
+	return count
+}
+
+func (m *Model) loadExistingFeatures(service Service) {
+	features := service.Features
+	
+	if features.FirebaseAuth != nil {
+		m.selectedFeatures["firebaseauth"] = true
+		// Store the existing value for later use in buildFeatures
+	}
+	if features.CloudRunInvoker {
+		m.selectedFeatures["cloudrun_invoker"] = true
+	}
+	if len(features.BucketCreator) > 0 {
+		m.selectedFeatures["bucket_creator"] = true
+	}
+	if features.FirestoreAccess {
+		m.selectedFeatures["firestore_access"] = true
+	}
+	if len(features.BucketReader) > 0 {
+		m.selectedFeatures["bucket_reader"] = true
+	}
+	if len(features.BucketWriter) > 0 {
+		m.selectedFeatures["bucket_writer"] = true
+	}
+	if features.MysqlAccess {
+		m.selectedFeatures["mysql_access"] = true
+	}
+	if features.PostgresAccess {
+		m.selectedFeatures["postgres_access"] = true
+	}
+}
 
 // Service Name Screen
 func (m Model) updateServiceNameScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "enter":
 		if strings.TrimSpace(m.serviceInput) == "" {
-			// If empty input and we have services, go to summary
-			if len(m.config.Services) > 0 {
-				m.screen = summaryScreen
-				return m, nil
-			}
-			// Otherwise stay on service name screen
+			// If empty input, go back to service list
+			m.screen = serviceListScreen
 			return m, nil
 		}
 		
 		// Set current service and go to feature selection
 		m.currentService = strings.TrimSpace(m.serviceInput)
 		m.serviceInput = ""
+		m.editingService = false
 		m.selectedFeatures = make(map[string]bool)
 		m.screen = featureSelectionScreen
 		return m, nil
@@ -109,14 +280,18 @@ func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		return m, nil
 		
 	case "enter":
-		// Save service and go back to service name screen
+		// Save service and go back to service list screen
 		service := Service{Features: m.buildFeatures()}
 		m.config.Services[m.currentService] = service
-		m.screen = serviceNameScreen
+		m.screen = serviceListScreen
 		return m, nil
 		
 	case "esc":
-		m.screen = serviceNameScreen
+		if m.editingService {
+			m.screen = serviceListScreen
+		} else {
+			m.screen = serviceNameScreen
+		}
 		return m, nil
 	}
 	
@@ -126,7 +301,11 @@ func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 func (m Model) viewFeatureSelectionScreen() string {
 	var content strings.Builder
 	
-	content.WriteString(headerStyle.Render(fmt.Sprintf("Configure Features for: %s", m.currentService)))
+	title := fmt.Sprintf("Configure Features for: %s", m.currentService)
+	if m.editingService {
+		title = fmt.Sprintf("Edit Features for: %s", m.currentService)
+	}
+	content.WriteString(headerStyle.Render(title))
 	content.WriteString("\n\n")
 	
 	features := []string{
@@ -293,18 +472,36 @@ func (m Model) viewSummaryScreen() string {
 
 // Helper function to build features from selected options
 func (m Model) buildFeatures() Features {
+	// Start with existing features if editing
 	features := Features{}
+	if m.editingService {
+		if existingService, exists := m.config.Services[m.currentService]; exists {
+			features = existingService.Features
+		}
+	}
 	
+	// Apply selected features (this will override existing ones)
 	if m.selectedFeatures["firebaseauth"] {
 		role := m.detailInput
 		if role == "" {
-			role = "viewer"
+			if m.editingService && features.FirebaseAuth != nil {
+				// Keep existing value
+			} else {
+				role = "viewer"
+			}
 		}
-		features.FirebaseAuth = role
+		if role != "" {
+			features.FirebaseAuth = role
+		}
+	} else {
+		// Feature not selected, remove it
+		features.FirebaseAuth = nil
 	}
 	
 	if m.selectedFeatures["cloudrun_invoker"] {
 		features.CloudRunInvoker = true
+	} else {
+		features.CloudRunInvoker = false
 	}
 	
 	if m.selectedFeatures["bucket_creator"] {
@@ -314,11 +511,17 @@ func (m Model) buildFeatures() Features {
 				buckets[i] = strings.TrimSpace(bucket)
 			}
 			features.BucketCreator = buckets
+		} else if !m.editingService {
+			features.BucketCreator = []string{}
 		}
+	} else {
+		features.BucketCreator = []string{}
 	}
 	
 	if m.selectedFeatures["firestore_access"] {
 		features.FirestoreAccess = true
+	} else {
+		features.FirestoreAccess = false
 	}
 	
 	if m.selectedFeatures["bucket_reader"] {
@@ -328,7 +531,11 @@ func (m Model) buildFeatures() Features {
 				buckets[i] = strings.TrimSpace(bucket)
 			}
 			features.BucketReader = buckets
+		} else if !m.editingService {
+			features.BucketReader = []string{}
 		}
+	} else {
+		features.BucketReader = []string{}
 	}
 	
 	if m.selectedFeatures["bucket_writer"] {
@@ -338,15 +545,23 @@ func (m Model) buildFeatures() Features {
 				buckets[i] = strings.TrimSpace(bucket)
 			}
 			features.BucketWriter = buckets
+		} else if !m.editingService {
+			features.BucketWriter = []string{}
 		}
+	} else {
+		features.BucketWriter = []string{}
 	}
 	
 	if m.selectedFeatures["mysql_access"] {
 		features.MysqlAccess = true
+	} else {
+		features.MysqlAccess = false
 	}
 	
 	if m.selectedFeatures["postgres_access"] {
 		features.PostgresAccess = true
+	} else {
+		features.PostgresAccess = false
 	}
 	
 	return features
