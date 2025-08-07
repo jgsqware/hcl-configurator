@@ -1,10 +1,12 @@
 locals {
   cloudrun_services = {
-    test-service = {
+    ffddsfdsfs = {
       features = {
-        firebaseauth = "viewer"
-        bucket_creator = ["tst",""]
+        cloudrun_invoker = true
+        bucket_creator = ["test"]
         firestore_access = true
+        mysql_access = true
+        postgres_access = true
       }
     }
   }
