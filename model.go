@@ -28,9 +28,12 @@ type Model struct {
 	serviceInput   string
 	currentService string
 	
-	// Feature selection
-	featuresCursor int
+	// Feature selection with search
+	featuresCursor   int
 	selectedFeatures map[string]bool
+	searchMode       bool
+	searchInput      string
+	filteredFeatures []string
 	
 	// Feature details
 	detailInput    string
@@ -42,33 +45,65 @@ type Model struct {
 }
 
 var (
+	// Dark terminal-optimized color palette using simple color names
 	titleStyle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#FAFAFA")).
-		Background(lipgloss.Color("#7D56F4")).
-		Padding(0, 1)
+		Foreground(lipgloss.Color("0")).  // Black text
+		Background(lipgloss.Color("205")). // Bright pink/coral
+		Padding(0, 2).
+		MarginBottom(1)
 		
 	headerStyle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#7D56F4")).
-		MarginBottom(1)
+		Foreground(lipgloss.Color("51")). // Bright cyan
+		MarginBottom(1).
+		Underline(true)
 		
 	selectedStyle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#7D56F4")).
-		Background(lipgloss.Color("#E5E5E5"))
+		Foreground(lipgloss.Color("0")).   // Black text
+		Background(lipgloss.Color("51")).  // Bright cyan background
+		Padding(0, 1)
 		
 	normalStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#666666"))
+		Foreground(lipgloss.Color("255")) // Bright white for dark terminals
 		
 	inputStyle = lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#7D56F4")).
-		Padding(0, 1)
+		BorderForeground(lipgloss.Color("51")). // Bright cyan
+		Foreground(lipgloss.Color("255")).      // White text
+		Padding(0, 1).
+		MarginBottom(1)
 		
 	helpStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color("#666666")).
+		Foreground(lipgloss.Color("247")). // Light gray
+		Italic(true).
 		MarginTop(1)
+		
+	// Semantic styles using safe color codes
+	successStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("46")) // Bright green
+		
+	warningStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("214")) // Bright orange
+		
+	errorStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("196")) // Bright red
+		
+	accentStyle = lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("141")) // Bright purple
+		
+	searchStyle = lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("214")). // Orange border
+		Foreground(lipgloss.Color("0")).         // Black text
+		Background(lipgloss.Color("229")).       // Light yellow background
+		Padding(0, 1).
+		MarginBottom(1)
 )
 
 func NewModel(outputFile string) Model {

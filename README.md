@@ -1,15 +1,17 @@
 # HCL Generator for Cloud Run Services
 
-A modern TUI application built with Bubble Tea that generates HCL configuration files for Terraform with interactive Cloud Run service configuration.
+A vibrant, modern TUI application built with Bubble Tea that generates HCL configuration files for Terraform with interactive Cloud Run service configuration and fuzzy search.
 
-## Features
+## ✨ Features
 
-- **Interactive Terminal UI**: Beautiful, intuitive interface powered by Bubble Tea
-- **Multi-service configuration**: Add multiple Cloud Run services in one session
-- **Feature selection**: Easy checkbox-style feature selection with descriptions
-- **Dynamic input**: Context-sensitive prompts for feature details
-- **Real-time preview**: Configuration summary before generation
-- **Professional styling**: Clean, modern terminal interface with colors and formatting
+- **🎨 Vibrant UI**: Bright, modern color scheme with excellent readability
+- **🔍 Fuzzy Search**: Lightning-fast feature discovery with intelligent matching
+- **🎯 Interactive Configuration**: Intuitive checkbox-style feature selection
+- **📦 Multi-service Support**: Manage multiple Cloud Run services in one session
+- **🔄 Live Editing**: Read, modify, and update existing HCL configurations
+- **💡 Context-aware Input**: Smart prompts for different feature types
+- **📊 Real-time Stats**: Feature counts and search result indicators
+- **🎭 Rich Visual Feedback**: Icons, colors, and styled components throughout
 
 ## Supported Features
 
@@ -57,57 +59,64 @@ If no `-input` is specified but the output file exists, the application will aut
 3. **Live Editing**: Changes are applied to existing configuration
 4. **Summary & Save**: Review changes and update the HCL file
 
-## Navigation Controls
+## 🎮 Navigation Controls
 
 ### Service List Screen:
 - **↑/↓ or j/k**: Navigate through services
-- **Enter**: Edit selected service or add new service
-- **d**: Delete selected service
-- **s**: Go to summary/save screen
+- **Enter**: Edit selected service or add new service  
+- **d**: Delete selected service (🗑️)
+- **s**: Go to summary/save screen (📊)
 - **Esc**: Quit application
 
 ### Feature Selection:
+- **🔍 / (slash)**: Enter fuzzy search mode
 - **↑/↓ or j/k**: Navigate through features
-- **Space**: Select/deselect features
+- **Space**: Select/deselect features (☑️/☐)
 - **Enter**: Save service configuration
-- **Esc**: Cancel and return to service list
+- **Esc**: Exit search mode or cancel
+
+### Fuzzy Search Mode:
+- **Type**: Search features by name or description
+- **Enter**: Exit search mode
+- **Esc**: Cancel search and show all features
+- **Backspace**: Delete search characters
 
 ### General:
 - **Ctrl+C or q**: Quit application at any time
 
 ## Example Session Flow
 
-### Service List (when editing existing file):
+### 🚀 Service List (vibrant styling):
 ```
-┌─ HCL Configuration Builder ─┐
-│                             │
-│ Services Configuration      │
-│                             │
-│ Existing services:          │
-│ > mobile-interface (3 features) │
-│   datalog-business (2 features) │
-│   Add new service           │
-│                             │
-│ ↑/↓ navigate, Enter edit/add, d delete, s summary │
-└─────────────────────────────┘
+🚀 Cloud Run Services Configuration
+
+📦 2 services configured:
+
+  ⚡ mobile-interface (8 features)
+► 🔧 datalog-business (3 features)  
+  ✨ Add new service
+
+Navigation: ↑/↓ navigate, Enter edit/add, d delete, s summary, Esc quit
 ```
 
-### Feature Selection:
+### 🔍 Feature Selection with Search:
 ```
-┌─ Edit Features for: mobile-interface ─┐
-│                                       │
-│ > [✓] Firebase Auth (requires role)   │
-│   [✓] Cloud Run Invoker permissions   │
-│   [✓] Storage bucket creator access   │
-│   [ ] Firestore database access       │
-│   [ ] Storage bucket reader access    │
-│   [ ] Storage bucket writer access    │
-│   [ ] MySQL database access           │
-│   [ ] PostgreSQL database access      │
-│                                       │
-│ ↑/↓ navigate, Space select, Enter save │
-└───────────────────────────────────────┘
+Edit Features for: mobile-interface
+
+🔍 Search features: fire
+📦 3/20 features selected | 🔍 2 matches
+
+☑ ► firebaseauth - Firebase Authentication (viewer/admin)
+☐   firestore_reader - Firestore database reader
+
+Navigation: ↑/↓ navigate, Space select, / search, Enter save, Esc cancel
 ```
+
+### 💡 Search Examples:
+- Type `fire` → finds Firebase Auth, Firestore features
+- Type `bucket` → finds all bucket-related features  
+- Type `pub` → finds Pub/Sub topics and subscriptions
+- Type `sql` → finds MySQL and PostgreSQL features
 
 ## Output Format
 
@@ -137,5 +146,17 @@ locals {
 
 ## Dependencies
 
-- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - TUI framework
-- [Lip Gloss](https://github.com/charmbracelet/lipgloss) - Terminal styling
+- [Bubble Tea](https://github.com/charmbracelet/bubbletea) - Modern TUI framework
+- [Lip Gloss](https://github.com/charmbracelet/lipgloss) - Terminal styling and colors
+- [HashiCorp HCL](https://github.com/hashicorp/hcl) - HCL parsing and generation
+- [Fuzzy](https://github.com/sahilm/fuzzy) - Fast fuzzy string matching
+
+## 🎨 Design Philosophy
+
+This application follows modern design principles:
+
+- **High Contrast**: Bright colors on light backgrounds for excellent readability
+- **Semantic Colors**: Green for success, orange for warnings, red for errors, purple for accents
+- **Visual Hierarchy**: Icons, bold text, and spacing to guide the eye
+- **Immediate Feedback**: Real-time search results and feature counters
+- **Accessibility**: Clear visual distinctions and intuitive navigation

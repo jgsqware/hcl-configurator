@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/sahilm/fuzzy"
 )
 
 // Service List Screen
@@ -79,7 +80,7 @@ func (m Model) updateServiceListScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) viewServiceListScreen() string {
 	var content strings.Builder
 	
-	content.WriteString(headerStyle.Render("Services Configuration"))
+	content.WriteString(headerStyle.Render("Cloud Run Services Configuration"))
 	content.WriteString("\n\n")
 	
 	services := make([]string, 0, len(m.config.Services))
@@ -89,10 +90,13 @@ func (m Model) viewServiceListScreen() string {
 	sort.Strings(services)
 	
 	if len(services) == 0 {
-		content.WriteString("No services configured yet.\n")
+		content.WriteString(warningStyle.Render("No services configured yet"))
+		content.WriteString("\n\n")
 		content.WriteString(selectedStyle.Render("> Add new service"))
 	} else {
-		content.WriteString("Existing services:\n")
+		content.WriteString(accentStyle.Render(fmt.Sprintf("%d services configured:", len(services))))
+		content.WriteString("\n\n")
+		
 		for i, serviceName := range services {
 			service := m.config.Services[serviceName]
 			featureCount := m.countFeatures(service.Features)
@@ -108,6 +112,7 @@ func (m Model) viewServiceListScreen() string {
 			content.WriteString("\n")
 		}
 		
+		content.WriteString("\n")
 		// Add "Add new service" option
 		if m.servicesCursor == len(services) {
 			content.WriteString(selectedStyle.Render("> Add new service"))
@@ -117,7 +122,9 @@ func (m Model) viewServiceListScreen() string {
 	}
 	
 	content.WriteString("\n\n")
-	content.WriteString(helpStyle.Render("Use ↑/↓ to navigate, Enter to edit/add, d to delete, s for summary, Esc to quit"))
+	
+	helpText := helpStyle.Render("Navigation: ↑/↓ navigate, Enter edit/add, d delete, s summary, Esc quit")
+	content.WriteString(helpText)
 	
 	return content.String()
 }
@@ -291,50 +298,137 @@ func (m Model) viewServiceNameScreen() string {
 	content.WriteString("\n\n")
 	
 	if len(m.config.Services) > 0 {
-		content.WriteString("Configured services:\n")
+		content.WriteString(accentStyle.Render("Existing services:"))
+		content.WriteString("\n")
 		for name := range m.config.Services {
-			content.WriteString(fmt.Sprintf("  • %s\n", name))
+			content.WriteString(successStyle.Render("  " + name))
+			content.WriteString("\n")
 		}
 		content.WriteString("\n")
 	}
 	
-	content.WriteString(inputStyle.Render(fmt.Sprintf("Service name: %s", m.serviceInput)))
+	promptText := "Service name: " + m.serviceInput
+	content.WriteString(inputStyle.Render(promptText))
 	content.WriteString("\n")
 	
+	var helpText string
 	if len(m.config.Services) > 0 {
-		content.WriteString(helpStyle.Render("Press Enter to add service, or press Enter with empty name to finish"))
+		helpText = "Press Enter to add service, or Enter with empty name to go back"
 	} else {
-		content.WriteString(helpStyle.Render("Press Enter to continue"))
+		helpText = "Enter a service name and press Enter to continue"
 	}
+	content.WriteString(helpStyle.Render(helpText))
 	
 	return content.String()
 }
 
+// Get all features with descriptions
+func getAllFeatures() []FeatureItem {
+	return []FeatureItem{
+		{"firebaseauth", "Firebase Authentication (viewer/admin)"},
+		{"firebase_cloudmessaging_sender", "Firebase Cloud Messaging sender"},
+		{"firebase_cloudmessaging_viewer", "Firebase Cloud Messaging viewer"},
+		{"cloudrun_invoker", "Cloud Run Invoker permissions"},
+		{"eventarc_subrole", "Eventarc subscription role"},
+		{"cidr", "CIDR block access (requires CIDR)"},
+		{"bucket_writer", "Storage bucket writer (requires bucket names)"},
+		{"bucket_creator", "Storage bucket creator (requires bucket names)"},
+		{"bucket_reader", "Storage bucket reader (requires bucket names)"},
+		{"subscription_subscriber", "Pub/Sub subscription subscriber (requires names)"},
+		{"subscription_viewer", "Pub/Sub subscription viewer (requires names)"},
+		{"subscription_editor", "Pub/Sub subscription editor (requires names)"},
+		{"topic_publisher", "Pub/Sub topic publisher (requires names)"},
+		{"topic_viewer", "Pub/Sub topic viewer (requires names)"},
+		{"topic_editor", "Pub/Sub topic editor (requires names)"},
+		{"firestore_reader", "Firestore database reader"},
+		{"firestore_writer", "Firestore database writer"},
+		{"mysql_access", "MySQL database access"},
+		{"postgres_access", "PostgreSQL database access"},
+		{"enable_profiling", "Enable application profiling"},
+	}
+}
+
+type FeatureItem struct {
+	Name        string
+	Description string
+}
+
+func (f FeatureItem) String() string {
+	return f.Name + " " + f.Description
+}
+
 // Feature Selection Screen
 func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	features := []string{
-		"firebaseauth",
-		"firebase_cloudmessaging_sender",
-		"firebase_cloudmessaging_viewer",
-		"cloudrun_invoker",
-		"eventarc_subrole",
-		"cidr",
-		"bucket_writer",
-		"bucket_creator",
-		"bucket_reader",
-		"subscription_subscriber",
-		"subscription_viewer",
-		"subscription_editor",
-		"topic_publisher",
-		"topic_viewer", 
-		"topic_editor",
-		"firestore_reader",
-		"firestore_writer",
-		"mysql_access",
-		"postgres_access",
-		"enable_profiling",
+	allFeatures := getAllFeatures()
+	
+	// If not in search mode and no filtered features, use all features
+	if !m.searchMode && len(m.filteredFeatures) == 0 {
+		m.filteredFeatures = make([]string, len(allFeatures))
+		for i, f := range allFeatures {
+			m.filteredFeatures[i] = f.Name
+		}
 	}
 	
+	switch msg.String() {
+	case "/":
+		// Enter search mode
+		m.searchMode = true
+		m.searchInput = ""
+		return m, nil
+		
+	case "esc":
+		if m.searchMode {
+			// Exit search mode
+			m.searchMode = false
+			m.searchInput = ""
+			m.filteredFeatures = make([]string, len(allFeatures))
+			for i, f := range allFeatures {
+				m.filteredFeatures[i] = f.Name
+			}
+			m.featuresCursor = 0
+			return m, nil
+		} else {
+			// Exit feature selection
+			if m.editingService {
+				m.screen = serviceListScreen
+			} else {
+				m.screen = serviceNameScreen
+			}
+			return m, nil
+		}
+	}
+	
+	if m.searchMode {
+		switch msg.String() {
+		case "enter":
+			// Exit search mode
+			m.searchMode = false
+			return m, nil
+			
+		case "backspace":
+			if len(m.searchInput) > 0 {
+				m.searchInput = m.searchInput[:len(m.searchInput)-1]
+				m.updateFilteredFeatures()
+				if m.featuresCursor >= len(m.filteredFeatures) {
+					m.featuresCursor = len(m.filteredFeatures) - 1
+				}
+				if m.featuresCursor < 0 {
+					m.featuresCursor = 0
+				}
+			}
+			return m, nil
+			
+		default:
+			if len(msg.String()) == 1 {
+				m.searchInput += msg.String()
+				m.updateFilteredFeatures()
+				m.featuresCursor = 0 // Reset cursor to top after search
+			}
+			return m, nil
+		}
+	}
+	
+	// Normal navigation mode
 	switch msg.String() {
 	case "up", "k":
 		if m.featuresCursor > 0 {
@@ -343,13 +437,17 @@ func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		return m, nil
 		
 	case "down", "j":
-		if m.featuresCursor < len(features)-1 {
+		if m.featuresCursor < len(m.filteredFeatures)-1 {
 			m.featuresCursor++
 		}
 		return m, nil
 		
 	case " ":
-		feature := features[m.featuresCursor]
+		if len(m.filteredFeatures) == 0 {
+			return m, nil
+		}
+		
+		feature := m.filteredFeatures[m.featuresCursor]
 		// Features that need additional input
 		needsInput := []string{
 			"firebaseauth", "cidr", "bucket_creator", "bucket_reader", "bucket_writer",
@@ -383,99 +481,130 @@ func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		m.config.Services[m.currentService] = service
 		m.screen = serviceListScreen
 		return m, nil
-		
-	case "esc":
-		if m.editingService {
-			m.screen = serviceListScreen
-		} else {
-			m.screen = serviceNameScreen
-		}
-		return m, nil
 	}
 	
 	return m, nil
 }
 
+func (m *Model) updateFilteredFeatures() {
+	allFeatures := getAllFeatures()
+	
+	if m.searchInput == "" {
+		m.filteredFeatures = make([]string, len(allFeatures))
+		for i, f := range allFeatures {
+			m.filteredFeatures[i] = f.Name
+		}
+		return
+	}
+	
+	// Create searchable strings
+	searchableFeatures := make([]string, len(allFeatures))
+	for i, f := range allFeatures {
+		searchableFeatures[i] = f.String() // Use the String() method which combines name and description
+	}
+	
+	// Use fuzzy search
+	matches := fuzzy.Find(m.searchInput, searchableFeatures)
+	m.filteredFeatures = make([]string, len(matches))
+	for i, match := range matches {
+		m.filteredFeatures[i] = allFeatures[match.Index].Name
+	}
+}
+
 func (m Model) viewFeatureSelectionScreen() string {
 	var content strings.Builder
 	
-	title := fmt.Sprintf("Configure Features for: %s", m.currentService)
+	// Clean title without complex styling
+	var title string
 	if m.editingService {
-		title = fmt.Sprintf("Edit Features for: %s", m.currentService)
+		title = "Edit Features for: " + m.currentService
+	} else {
+		title = "Configure Features for: " + m.currentService
 	}
 	content.WriteString(headerStyle.Render(title))
-	content.WriteString("\n\n")
+	content.WriteString("\n")
 	
-	features := []string{
-		"firebaseauth",
-		"firebase_cloudmessaging_sender",
-		"firebase_cloudmessaging_viewer",
-		"cloudrun_invoker",
-		"eventarc_subrole",
-		"cidr",
-		"bucket_writer",
-		"bucket_creator",
-		"bucket_reader",
-		"subscription_subscriber",
-		"subscription_viewer",
-		"subscription_editor",
-		"topic_publisher",
-		"topic_viewer", 
-		"topic_editor",
-		"firestore_reader",
-		"firestore_writer",
-		"mysql_access",
-		"postgres_access",
-		"enable_profiling",
-	}
-	
-	descriptions := map[string]string{
-		"firebaseauth":                    "Firebase Authentication (viewer/admin)",
-		"firebase_cloudmessaging_sender":  "Firebase Cloud Messaging sender",
-		"firebase_cloudmessaging_viewer":  "Firebase Cloud Messaging viewer",
-		"cloudrun_invoker":                "Cloud Run Invoker permissions",
-		"eventarc_subrole":                "Eventarc subscription role",
-		"cidr":                            "CIDR block access (requires CIDR)",
-		"bucket_writer":                   "Storage bucket writer (requires bucket names)",
-		"bucket_creator":                  "Storage bucket creator (requires bucket names)",
-		"bucket_reader":                   "Storage bucket reader (requires bucket names)",
-		"subscription_subscriber":        "Pub/Sub subscription subscriber (requires names)",
-		"subscription_viewer":            "Pub/Sub subscription viewer (requires names)",
-		"subscription_editor":            "Pub/Sub subscription editor (requires names)",
-		"topic_publisher":                "Pub/Sub topic publisher (requires names)",
-		"topic_viewer":                   "Pub/Sub topic viewer (requires names)",
-		"topic_editor":                   "Pub/Sub topic editor (requires names)",
-		"firestore_reader":               "Firestore database reader",
-		"firestore_writer":               "Firestore database writer",
-		"mysql_access":                   "MySQL database access",
-		"postgres_access":                "PostgreSQL database access",
-		"enable_profiling":               "Enable application profiling",
-	}
-	
-	for i, feature := range features {
-		var line string
-		
-		if i == m.featuresCursor {
-			line = selectedStyle.Render(fmt.Sprintf("> [ ] %s", descriptions[feature]))
-		} else {
-			checkbox := " "
-			if m.selectedFeatures[feature] {
-				checkbox = "✓"
-			}
-			line = normalStyle.Render(fmt.Sprintf("  [%s] %s", checkbox, descriptions[feature]))
-		}
-		
-		if m.selectedFeatures[feature] {
-			line = strings.Replace(line, "[ ]", "[✓]", 1)
-			line = strings.Replace(line, "> [ ]", "> [✓]", 1)
-		}
-		
-		content.WriteString(line)
+	// Search input if in search mode
+	if m.searchMode {
+		searchPrompt := "Search features: " + m.searchInput
+		content.WriteString(searchStyle.Render(searchPrompt))
 		content.WriteString("\n")
 	}
 	
+	// Feature count and search info
+	allFeatures := getAllFeatures()
+	descriptions := make(map[string]string)
+	for _, f := range allFeatures {
+		descriptions[f.Name] = f.Description
+	}
+	
+	selectedCount := 0
+	for _, selected := range m.selectedFeatures {
+		if selected {
+			selectedCount++
+		}
+	}
+	
+	statusLine := fmt.Sprintf("%d/%d features selected", selectedCount, len(allFeatures))
+	if m.searchMode {
+		statusLine += fmt.Sprintf(" | %d matches", len(m.filteredFeatures))
+	}
+	content.WriteString(accentStyle.Render(statusLine))
+	content.WriteString("\n\n")
+	
+	// Features list (filtered or all)
+	features := m.filteredFeatures
+	if len(features) == 0 {
+		features = make([]string, len(allFeatures))
+		for i, f := range allFeatures {
+			features[i] = f.Name
+		}
+	}
+	
+	if len(features) == 0 {
+		content.WriteString(warningStyle.Render("No features match your search"))
+		content.WriteString("\n")
+	} else {
+		for i, feature := range features {
+			isSelected := m.selectedFeatures[feature]
+			
+			// Create a clean line without mixing styles
+			var prefix string
+			var featureLine string
+			
+			if i == m.featuresCursor {
+				// Selected line
+				if isSelected {
+					prefix = "[x]"
+				} else {
+					prefix = "[ ]"
+				}
+				featureLine = selectedStyle.Render(prefix + " " + feature + " - " + descriptions[feature])
+			} else {
+				// Normal line  
+				if isSelected {
+					prefix = successStyle.Render("[x]")
+				} else {
+					prefix = "[.]"
+				}
+				featureLine = normalStyle.Render(prefix + " " + feature) + helpStyle.Render(" - " + descriptions[feature])
+			}
+			
+			content.WriteString(featureLine)
+			content.WriteString("\n")
+		}
+	}
+	
 	content.WriteString("\n")
-	content.WriteString(helpStyle.Render("Use ↑/↓ to navigate, Space to select, Enter to save, Esc to cancel"))
+	
+	// Clean help text
+	var helpText string
+	if m.searchMode {
+		helpText = "Search Mode: Type to search, Enter to exit search, Esc to cancel search"
+	} else {
+		helpText = "Navigation: ↑/↓ navigate, Space select, / search, Enter save, Esc cancel"
+	}
+	content.WriteString(helpStyle.Render(helpText))
 	
 	return content.String()
 }
@@ -530,13 +659,19 @@ func (m Model) viewFeatureDetailsScreen() string {
 		prompt = "Enter Pub/Sub topic names (comma-separated):"
 	}
 	
-	content.WriteString(headerStyle.Render(fmt.Sprintf("Configure %s", m.currentFeature)))
+	title := "Configure " + m.currentFeature
+	content.WriteString(headerStyle.Render(title))
 	content.WriteString("\n\n")
-	content.WriteString(prompt)
+	
+	content.WriteString(accentStyle.Render(prompt))
 	content.WriteString("\n\n")
-	content.WriteString(inputStyle.Render(m.detailInput))
+	
+	inputText := m.detailInput
+	content.WriteString(inputStyle.Render(inputText))
 	content.WriteString("\n")
-	content.WriteString(helpStyle.Render("Press Enter to confirm, Esc to cancel"))
+	
+	helpText := "Enter to confirm | Esc to cancel"
+	content.WriteString(helpStyle.Render(helpText))
 	
 	return content.String()
 }
