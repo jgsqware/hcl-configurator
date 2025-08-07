@@ -322,29 +322,29 @@ func (m Model) viewServiceNameScreen() string {
 	return content.String()
 }
 
-// Get all features with descriptions
+// Get all features with compact descriptions
 func getAllFeatures() []FeatureItem {
 	return []FeatureItem{
-		{"firebaseauth", "Firebase Authentication (viewer/admin)"},
-		{"firebase_cloudmessaging_sender", "Firebase Cloud Messaging sender"},
-		{"firebase_cloudmessaging_viewer", "Firebase Cloud Messaging viewer"},
-		{"cloudrun_invoker", "Cloud Run Invoker permissions"},
-		{"eventarc_subrole", "Eventarc subscription role"},
-		{"cidr", "CIDR block access (requires CIDR)"},
-		{"bucket_writer", "Storage bucket writer (requires bucket names)"},
-		{"bucket_creator", "Storage bucket creator (requires bucket names)"},
-		{"bucket_reader", "Storage bucket reader (requires bucket names)"},
-		{"subscription_subscriber", "Pub/Sub subscription subscriber (requires names)"},
-		{"subscription_viewer", "Pub/Sub subscription viewer (requires names)"},
-		{"subscription_editor", "Pub/Sub subscription editor (requires names)"},
-		{"topic_publisher", "Pub/Sub topic publisher (requires names)"},
-		{"topic_viewer", "Pub/Sub topic viewer (requires names)"},
-		{"topic_editor", "Pub/Sub topic editor (requires names)"},
-		{"firestore_reader", "Firestore database reader"},
-		{"firestore_writer", "Firestore database writer"},
-		{"mysql_access", "MySQL database access"},
-		{"postgres_access", "PostgreSQL database access"},
-		{"enable_profiling", "Enable application profiling"},
+		{"firebaseauth", "Firebase Authentication"},
+		{"firebase_cloudmessaging_sender", "Firebase Messaging Sender"},
+		{"firebase_cloudmessaging_viewer", "Firebase Messaging Viewer"},
+		{"cloudrun_invoker", "Cloud Run Invoker"},
+		{"eventarc_subrole", "Eventarc Subrole"},
+		{"cidr", "CIDR Block Access"},
+		{"bucket_writer", "Storage Bucket Writer"},
+		{"bucket_creator", "Storage Bucket Creator"},
+		{"bucket_reader", "Storage Bucket Reader"},
+		{"subscription_subscriber", "Pub/Sub Subscriber"},
+		{"subscription_viewer", "Pub/Sub Subscription Viewer"},
+		{"subscription_editor", "Pub/Sub Subscription Editor"},
+		{"topic_publisher", "Pub/Sub Topic Publisher"},
+		{"topic_viewer", "Pub/Sub Topic Viewer"},
+		{"topic_editor", "Pub/Sub Topic Editor"},
+		{"firestore_reader", "Firestore Reader"},
+		{"firestore_writer", "Firestore Writer"},
+		{"mysql_access", "MySQL Access"},
+		{"postgres_access", "PostgreSQL Access"},
+		{"enable_profiling", "Application Profiling"},
 	}
 }
 
@@ -361,7 +361,7 @@ func (f FeatureItem) String() string {
 func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	allFeatures := getAllFeatures()
 	
-	// If not in search mode and no filtered features, use all features
+	// Initialize filtered features if needed
 	if !m.searchMode && len(m.filteredFeatures) == 0 {
 		m.filteredFeatures = make([]string, len(allFeatures))
 		for i, f := range allFeatures {
@@ -369,39 +369,10 @@ func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		}
 	}
 	
-	switch msg.String() {
-	case "/":
-		// Enter search mode
-		m.searchMode = true
-		m.searchInput = ""
-		return m, nil
-		
-	case "esc":
-		if m.searchMode {
-			// Exit search mode
-			m.searchMode = false
-			m.searchInput = ""
-			m.filteredFeatures = make([]string, len(allFeatures))
-			for i, f := range allFeatures {
-				m.filteredFeatures[i] = f.Name
-			}
-			m.featuresCursor = 0
-			return m, nil
-		} else {
-			// Exit feature selection
-			if m.editingService {
-				m.screen = serviceListScreen
-			} else {
-				m.screen = serviceNameScreen
-			}
-			return m, nil
-		}
-	}
-	
+	// Handle search mode input
 	if m.searchMode {
 		switch msg.String() {
-		case "enter":
-			// Exit search mode
+		case "enter", "esc":
 			m.searchMode = false
 			return m, nil
 			
@@ -409,12 +380,7 @@ func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 			if len(m.searchInput) > 0 {
 				m.searchInput = m.searchInput[:len(m.searchInput)-1]
 				m.updateFilteredFeatures()
-				if m.featuresCursor >= len(m.filteredFeatures) {
-					m.featuresCursor = len(m.filteredFeatures) - 1
-				}
-				if m.featuresCursor < 0 {
-					m.featuresCursor = 0
-				}
+				m.adjustViewport()
 			}
 			return m, nil
 			
@@ -422,7 +388,8 @@ func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 			if len(msg.String()) == 1 {
 				m.searchInput += msg.String()
 				m.updateFilteredFeatures()
-				m.featuresCursor = 0 // Reset cursor to top after search
+				m.featuresCursor = 0
+				m.viewportOffset = 0
 			}
 			return m, nil
 		}
@@ -430,16 +397,39 @@ func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 	
 	// Normal navigation mode
 	switch msg.String() {
+	case "/":
+		m.searchMode = true
+		m.searchInput = ""
+		return m, nil
+		
 	case "up", "k":
 		if m.featuresCursor > 0 {
 			m.featuresCursor--
+			m.adjustViewport()
 		}
 		return m, nil
 		
 	case "down", "j":
 		if m.featuresCursor < len(m.filteredFeatures)-1 {
 			m.featuresCursor++
+			m.adjustViewport()
 		}
+		return m, nil
+		
+	case "ctrl+u": // Page up
+		m.featuresCursor -= 10
+		if m.featuresCursor < 0 {
+			m.featuresCursor = 0
+		}
+		m.adjustViewport()
+		return m, nil
+		
+	case "ctrl+d": // Page down
+		m.featuresCursor += 10
+		if m.featuresCursor >= len(m.filteredFeatures) {
+			m.featuresCursor = len(m.filteredFeatures) - 1
+		}
+		m.adjustViewport()
 		return m, nil
 		
 	case " ":
@@ -448,7 +438,6 @@ func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		}
 		
 		feature := m.filteredFeatures[m.featuresCursor]
-		// Features that need additional input
 		needsInput := []string{
 			"firebaseauth", "cidr", "bucket_creator", "bucket_reader", "bucket_writer",
 			"subscription_subscriber", "subscription_viewer", "subscription_editor",
@@ -464,26 +453,60 @@ func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		}
 		
 		if requiresInput {
-			// These features need additional input
 			m.currentFeature = feature
 			m.detailInput = ""
 			m.screen = featureDetailsScreen
 			return m, nil
 		} else {
-			// Toggle boolean features
 			m.selectedFeatures[feature] = !m.selectedFeatures[feature]
 		}
 		return m, nil
 		
 	case "enter":
-		// Save service and go back to service list screen
 		service := Service{Features: m.buildFeatures()}
 		m.config.Services[m.currentService] = service
 		m.screen = serviceListScreen
 		return m, nil
+		
+	case "esc":
+		if m.editingService {
+			m.screen = serviceListScreen
+		} else {
+			m.screen = serviceNameScreen
+		}
+		return m, nil
 	}
 	
 	return m, nil
+}
+
+// Adjust viewport to keep cursor visible
+func (m *Model) adjustViewport() {
+	if m.height == 0 {
+		return // Terminal size not initialized yet
+	}
+	
+	// Calculate available height for features (total - header - status - search - help)
+	availableHeight := m.height - 5
+	if m.searchMode {
+		availableHeight-- // Account for search line
+	}
+	
+	if availableHeight <= 0 {
+		availableHeight = 10 // Minimum
+	}
+	
+	// Adjust viewport offset to keep cursor visible
+	if m.featuresCursor < m.viewportOffset {
+		m.viewportOffset = m.featuresCursor
+	} else if m.featuresCursor >= m.viewportOffset+availableHeight {
+		m.viewportOffset = m.featuresCursor - availableHeight + 1
+	}
+	
+	// Ensure viewport doesn't go negative
+	if m.viewportOffset < 0 {
+		m.viewportOffset = 0
+	}
 }
 
 func (m *Model) updateFilteredFeatures() {
@@ -512,32 +535,33 @@ func (m *Model) updateFilteredFeatures() {
 }
 
 func (m Model) viewFeatureSelectionScreen() string {
-	var content strings.Builder
-	
-	// Clean title without complex styling
-	var title string
-	if m.editingService {
-		title = "Edit Features for: " + m.currentService
-	} else {
-		title = "Configure Features for: " + m.currentService
-	}
-	content.WriteString(headerStyle.Render(title))
-	content.WriteString("\n")
-	
-	// Search input if in search mode
-	if m.searchMode {
-		searchPrompt := "Search features: " + m.searchInput
-		content.WriteString(searchStyle.Render(searchPrompt))
-		content.WriteString("\n")
-	}
-	
-	// Feature count and search info
 	allFeatures := getAllFeatures()
 	descriptions := make(map[string]string)
 	for _, f := range allFeatures {
 		descriptions[f.Name] = f.Description
 	}
 	
+	// Calculate terminal dimensions
+	availableHeight := m.height - 5 // Reserve space for header, status, help
+	if m.searchMode {
+		availableHeight-- // Reserve space for search
+	}
+	if availableHeight <= 0 {
+		availableHeight = 10
+	}
+	
+	var content strings.Builder
+	
+	// Compact title
+	action := "Configure"
+	if m.editingService {
+		action = "Edit"
+	}
+	title := fmt.Sprintf("%s: %s", action, m.currentService)
+	content.WriteString(headerStyle.Render(title))
+	content.WriteString("\n")
+	
+	// Status line with counts
 	selectedCount := 0
 	for _, selected := range m.selectedFeatures {
 		if selected {
@@ -545,14 +569,14 @@ func (m Model) viewFeatureSelectionScreen() string {
 		}
 	}
 	
-	statusLine := fmt.Sprintf("%d/%d features selected", selectedCount, len(allFeatures))
-	if m.searchMode {
-		statusLine += fmt.Sprintf(" | %d matches", len(m.filteredFeatures))
+	statusLine := fmt.Sprintf("[%d/%d]", selectedCount, len(allFeatures))
+	if len(m.filteredFeatures) < len(allFeatures) {
+		statusLine += fmt.Sprintf(" (%d matches)", len(m.filteredFeatures))
 	}
 	content.WriteString(accentStyle.Render(statusLine))
-	content.WriteString("\n\n")
+	content.WriteString("\n")
 	
-	// Features list (filtered or all)
+	// Features viewport
 	features := m.filteredFeatures
 	if len(features) == 0 {
 		features = make([]string, len(allFeatures))
@@ -562,49 +586,63 @@ func (m Model) viewFeatureSelectionScreen() string {
 	}
 	
 	if len(features) == 0 {
-		content.WriteString(warningStyle.Render("No features match your search"))
+		content.WriteString(warningStyle.Render("No matches"))
 		content.WriteString("\n")
 	} else {
-		for i, feature := range features {
+		// Show only visible items in viewport
+		start := m.viewportOffset
+		end := start + availableHeight
+		if end > len(features) {
+			end = len(features)
+		}
+		
+		for i := start; i < end; i++ {
+			feature := features[i]
 			isSelected := m.selectedFeatures[feature]
+			isCurrent := i == m.featuresCursor
 			
-			// Create a clean line without mixing styles
-			var prefix string
-			var featureLine string
-			
-			if i == m.featuresCursor {
-				// Selected line
-				if isSelected {
-					prefix = "[x]"
-				} else {
-					prefix = "[ ]"
-				}
-				featureLine = selectedStyle.Render(prefix + " " + feature + " - " + descriptions[feature])
-			} else {
-				// Normal line  
-				if isSelected {
-					prefix = successStyle.Render("[x]")
-				} else {
-					prefix = "[.]"
-				}
-				featureLine = normalStyle.Render(prefix + " " + feature) + helpStyle.Render(" - " + descriptions[feature])
+			// Compact display: just checkbox and description
+			checkbox := " "
+			if isSelected {
+				checkbox = "x"
 			}
 			
-			content.WriteString(featureLine)
+			line := fmt.Sprintf("[%s] %s", checkbox, descriptions[feature])
+			
+			if isCurrent {
+				content.WriteString(selectedStyle.Render(line))
+			} else {
+				if isSelected {
+					content.WriteString(successStyle.Render(line))
+				} else {
+					content.WriteString(normalStyle.Render(line))
+				}
+			}
+			content.WriteString("\n")
+		}
+		
+		// Show scroll indicator if needed
+		if len(features) > availableHeight {
+			scrollInfo := fmt.Sprintf(" [%d-%d/%d]", start+1, end, len(features))
+			content.WriteString(helpStyle.Render(scrollInfo))
 			content.WriteString("\n")
 		}
 	}
 	
-	content.WriteString("\n")
-	
-	// Clean help text
-	var helpText string
+	// Vim-style status line at bottom
+	var statusBottom string
 	if m.searchMode {
-		helpText = "Search Mode: Type to search, Enter to exit search, Esc to cancel search"
+		statusBottom = fmt.Sprintf("/%s", m.searchInput)
+		// Add cursor indicator in search
+		if len(statusBottom) < m.width-1 {
+			statusBottom += "_"
+		}
 	} else {
-		helpText = "Navigation: ↑/↓ navigate, Space select, / search, Enter save, Esc cancel"
+		statusBottom = "k/j:nav ␣:select /:search ↵:save esc:back"
 	}
-	content.WriteString(helpStyle.Render(helpText))
+	
+	content.WriteString("\n")
+	content.WriteString(searchStyle.Render(statusBottom))
 	
 	return content.String()
 }
