@@ -37,12 +37,19 @@ func (m Model) updateServiceListScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.currentService = serviceName
 			m.editingService = true
 			m.selectedFeatures = make(map[string]bool)
+			m.featureValues = make(map[string]string)
+			m.originalFeatures = make(map[string]bool)
+			m.originalValues = make(map[string]string)
 			m.loadExistingFeatures(m.config.Services[serviceName])
 			m.screen = featureSelectionScreen
 			return m, nil
 		} else {
 			// Add new service
 			m.editingService = false
+			m.selectedFeatures = make(map[string]bool)
+			m.featureValues = make(map[string]string)
+			m.originalFeatures = make(map[string]bool)
+			m.originalValues = make(map[string]string)
 			m.screen = serviceNameScreen
 			return m, nil
 		}
@@ -68,10 +75,7 @@ func (m Model) updateServiceListScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 		
 	case "esc":
-		if len(m.config.Services) == 0 {
-			return m, tea.Quit
-		}
-		return m, nil
+		return m, tea.Quit
 	}
 	
 	return m, nil
@@ -197,65 +201,132 @@ func (m Model) countFeatures(features Features) int {
 func (m *Model) loadExistingFeatures(service Service) {
 	features := service.Features
 	
+	// Load FirebaseAuth value
 	if features.FirebaseAuth != nil {
 		m.selectedFeatures["firebaseauth"] = true
+		m.originalFeatures["firebaseauth"] = true
+		if val, ok := features.FirebaseAuth.(string); ok {
+			m.featureValues["firebaseauth"] = val
+			m.originalValues["firebaseauth"] = val
+		} else if val, ok := features.FirebaseAuth.(bool); ok && val {
+			m.featureValues["firebaseauth"] = "viewer" // default for boolean true
+			m.originalValues["firebaseauth"] = "viewer"
+		}
 	}
-	if features.FirebaseCloudMessagingSender {
-		m.selectedFeatures["firebase_cloudmessaging_sender"] = true
-	}
-	if features.FirebaseCloudMessagingViewer {
-		m.selectedFeatures["firebase_cloudmessaging_viewer"] = true
-	}
-	if features.CloudRunInvoker {
-		m.selectedFeatures["cloudrun_invoker"] = true
-	}
-	if features.EventarcSubrole {
-		m.selectedFeatures["eventarc_subrole"] = true
-	}
+	
+	// Load CIDR value
 	if features.CIDR != "" {
 		m.selectedFeatures["cidr"] = true
+		m.originalFeatures["cidr"] = true
+		m.featureValues["cidr"] = features.CIDR
+		m.originalValues["cidr"] = features.CIDR
 	}
+	
+	// Load bucket features (store as comma-separated strings)
 	if len(features.BucketWriter) > 0 {
 		m.selectedFeatures["bucket_writer"] = true
+		m.originalFeatures["bucket_writer"] = true
+		val := strings.Join(features.BucketWriter, ",")
+		m.featureValues["bucket_writer"] = val
+		m.originalValues["bucket_writer"] = val
 	}
 	if len(features.BucketCreator) > 0 {
 		m.selectedFeatures["bucket_creator"] = true
+		m.originalFeatures["bucket_creator"] = true
+		val := strings.Join(features.BucketCreator, ",")
+		m.featureValues["bucket_creator"] = val
+		m.originalValues["bucket_creator"] = val
 	}
 	if len(features.BucketReader) > 0 {
 		m.selectedFeatures["bucket_reader"] = true
+		m.originalFeatures["bucket_reader"] = true
+		val := strings.Join(features.BucketReader, ",")
+		m.featureValues["bucket_reader"] = val
+		m.originalValues["bucket_reader"] = val
 	}
+	
+	// Load subscription features
 	if len(features.SubscriptionSubscriber) > 0 {
 		m.selectedFeatures["subscription_subscriber"] = true
+		m.originalFeatures["subscription_subscriber"] = true
+		val := strings.Join(features.SubscriptionSubscriber, ",")
+		m.featureValues["subscription_subscriber"] = val
+		m.originalValues["subscription_subscriber"] = val
 	}
 	if len(features.SubscriptionViewer) > 0 {
 		m.selectedFeatures["subscription_viewer"] = true
+		m.originalFeatures["subscription_viewer"] = true
+		val := strings.Join(features.SubscriptionViewer, ",")
+		m.featureValues["subscription_viewer"] = val
+		m.originalValues["subscription_viewer"] = val
 	}
 	if len(features.SubscriptionEditor) > 0 {
 		m.selectedFeatures["subscription_editor"] = true
+		m.originalFeatures["subscription_editor"] = true
+		val := strings.Join(features.SubscriptionEditor, ",")
+		m.featureValues["subscription_editor"] = val
+		m.originalValues["subscription_editor"] = val
 	}
+	
+	// Load topic features
 	if len(features.TopicPublisher) > 0 {
 		m.selectedFeatures["topic_publisher"] = true
+		m.originalFeatures["topic_publisher"] = true
+		val := strings.Join(features.TopicPublisher, ",")
+		m.featureValues["topic_publisher"] = val
+		m.originalValues["topic_publisher"] = val
 	}
 	if len(features.TopicViewer) > 0 {
 		m.selectedFeatures["topic_viewer"] = true
+		m.originalFeatures["topic_viewer"] = true
+		val := strings.Join(features.TopicViewer, ",")
+		m.featureValues["topic_viewer"] = val
+		m.originalValues["topic_viewer"] = val
 	}
 	if len(features.TopicEditor) > 0 {
 		m.selectedFeatures["topic_editor"] = true
+		m.originalFeatures["topic_editor"] = true
+		val := strings.Join(features.TopicEditor, ",")
+		m.featureValues["topic_editor"] = val
+		m.originalValues["topic_editor"] = val
+	}
+	
+	// Boolean features (no values to store, just track selection)
+	if features.FirebaseCloudMessagingSender {
+		m.selectedFeatures["firebase_cloudmessaging_sender"] = true
+		m.originalFeatures["firebase_cloudmessaging_sender"] = true
+	}
+	if features.FirebaseCloudMessagingViewer {
+		m.selectedFeatures["firebase_cloudmessaging_viewer"] = true
+		m.originalFeatures["firebase_cloudmessaging_viewer"] = true
+	}
+	if features.CloudRunInvoker {
+		m.selectedFeatures["cloudrun_invoker"] = true
+		m.originalFeatures["cloudrun_invoker"] = true
+	}
+	if features.EventarcSubrole {
+		m.selectedFeatures["eventarc_subrole"] = true
+		m.originalFeatures["eventarc_subrole"] = true
 	}
 	if features.FirestoreReader {
 		m.selectedFeatures["firestore_reader"] = true
+		m.originalFeatures["firestore_reader"] = true
 	}
 	if features.FirestoreWriter {
 		m.selectedFeatures["firestore_writer"] = true
+		m.originalFeatures["firestore_writer"] = true
 	}
 	if features.MysqlAccess {
 		m.selectedFeatures["mysql_access"] = true
+		m.originalFeatures["mysql_access"] = true
 	}
 	if features.PostgresAccess {
 		m.selectedFeatures["postgres_access"] = true
+		m.originalFeatures["postgres_access"] = true
 	}
 	if features.EnableProfiling {
 		m.selectedFeatures["enable_profiling"] = true
+		m.originalFeatures["enable_profiling"] = true
 	}
 }
 
@@ -274,6 +345,9 @@ func (m Model) updateServiceNameScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.serviceInput = ""
 		m.editingService = false
 		m.selectedFeatures = make(map[string]bool)
+		m.featureValues = make(map[string]string)
+		m.originalFeatures = make(map[string]bool)
+		m.originalValues = make(map[string]string)
 		m.screen = featureSelectionScreen
 		return m, nil
 		
@@ -454,7 +528,23 @@ func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		
 		if requiresInput {
 			m.currentFeature = feature
-			m.detailInput = ""
+			// Load existing value if available
+			if existingValue, exists := m.featureValues[feature]; exists {
+				m.detailInput = existingValue
+			} else {
+				m.detailInput = ""
+			}
+			m.choiceCursor = 0
+			m.setupChoices(feature)
+			// Set cursor to existing choice if it exists
+			if m.detailInput != "" {
+				for i, choice := range m.choices {
+					if choice == m.detailInput {
+						m.choiceCursor = i
+						break
+					}
+				}
+			}
 			m.screen = featureDetailsScreen
 			return m, nil
 		} else {
@@ -469,10 +559,16 @@ func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		return m, nil
 		
 	case "esc":
-		if m.editingService {
-			m.screen = serviceListScreen
+		// Check for unsaved changes before exiting
+		if m.hasUnsavedChanges() {
+			m.screen = unsavedChangesScreen
 		} else {
-			m.screen = serviceNameScreen
+			// No changes, safe to exit
+			if m.editingService {
+				m.screen = serviceListScreen
+			} else {
+				m.screen = serviceNameScreen
+			}
 		}
 		return m, nil
 	}
@@ -650,14 +746,36 @@ func (m Model) viewFeatureSelectionScreen() string {
 // Feature Details Screen
 func (m Model) updateFeatureDetailsScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
+	case "up", "k":
+		if m.choiceCursor > 0 {
+			m.choiceCursor--
+		}
+		return m, nil
+		
+	case "down", "j":
+		if m.choiceCursor < len(m.choices)-1 {
+			m.choiceCursor++
+		}
+		return m, nil
+		
 	case "enter":
-		input := strings.TrimSpace(m.detailInput)
-		if input != "" {
-			m.selectedFeatures[m.currentFeature] = true
-			// Store the detail input (we'll handle this in buildFeatures)
-			if m.currentFeature == "firebaseauth" {
-				m.selectedFeatures["firebaseauth_value"] = true
+		if len(m.choices) > 0 {
+			selectedChoice := m.choices[m.choiceCursor]
+			if selectedChoice == "Custom..." {
+				// Switch to text input mode for custom values
+				m.detailInput = ""
+				m.choices = []string{} // Clear choices to enable text input
+				return m, nil
+			} else {
+				// Use the selected choice
+				m.detailInput = selectedChoice
 			}
+		}
+		
+		// Mark feature as selected and store the input
+		if strings.TrimSpace(m.detailInput) != "" {
+			m.selectedFeatures[m.currentFeature] = true
+			m.featureValues[m.currentFeature] = strings.TrimSpace(m.detailInput)
 		}
 		m.screen = featureSelectionScreen
 		return m, nil
@@ -667,13 +785,15 @@ func (m Model) updateFeatureDetailsScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 		
 	case "backspace":
-		if len(m.detailInput) > 0 {
+		// Only allow backspace when in custom text input mode
+		if len(m.choices) == 0 && len(m.detailInput) > 0 {
 			m.detailInput = m.detailInput[:len(m.detailInput)-1]
 		}
 		return m, nil
 		
 	default:
-		if len(msg.String()) == 1 {
+		// Only allow typing when in custom text input mode
+		if len(m.choices) == 0 && len(msg.String()) == 1 {
 			m.detailInput += msg.String()
 		}
 		return m, nil
@@ -683,33 +803,49 @@ func (m Model) updateFeatureDetailsScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m Model) viewFeatureDetailsScreen() string {
 	var content strings.Builder
 	
-	var prompt string
-	switch m.currentFeature {
-	case "firebaseauth":
-		prompt = "Enter Firebase Auth role ('viewer' or 'admin'):"
-	case "cidr":
-		prompt = "Enter CIDR block (e.g., '10.0.0.0/24'):"
-	case "bucket_creator", "bucket_reader", "bucket_writer":
-		prompt = "Enter bucket names (comma-separated):"
-	case "subscription_subscriber", "subscription_viewer", "subscription_editor":
-		prompt = "Enter Pub/Sub subscription names (comma-separated):"
-	case "topic_publisher", "topic_viewer", "topic_editor":
-		prompt = "Enter Pub/Sub topic names (comma-separated):"
+	// Get feature display name
+	allFeatures := getAllFeatures()
+	var featureName string
+	for _, f := range allFeatures {
+		if f.Name == m.currentFeature {
+			featureName = f.Description
+			break
+		}
 	}
 	
-	title := "Configure " + m.currentFeature
+	title := "Configure: " + featureName
 	content.WriteString(headerStyle.Render(title))
-	content.WriteString("\n\n")
-	
-	content.WriteString(accentStyle.Render(prompt))
-	content.WriteString("\n\n")
-	
-	inputText := m.detailInput
-	content.WriteString(inputStyle.Render(inputText))
 	content.WriteString("\n")
 	
-	helpText := "Enter to confirm | Esc to cancel"
-	content.WriteString(helpStyle.Render(helpText))
+	if len(m.choices) > 0 {
+		// Show choice list
+		content.WriteString(accentStyle.Render("Select an option:"))
+		content.WriteString("\n\n")
+		
+		for i, choice := range m.choices {
+			var line string
+			if i == m.choiceCursor {
+				line = selectedStyle.Render("> " + choice)
+			} else {
+				line = normalStyle.Render("  " + choice)
+			}
+			content.WriteString(line)
+			content.WriteString("\n")
+		}
+		
+		content.WriteString("\n")
+		content.WriteString(helpStyle.Render("↑/↓ navigate | Enter select | Esc cancel"))
+	} else {
+		// Show text input (custom mode)
+		content.WriteString(accentStyle.Render("Enter custom value:"))
+		content.WriteString("\n\n")
+		
+		inputText := m.detailInput + "_" // Show cursor
+		content.WriteString(inputStyle.Render(inputText))
+		content.WriteString("\n\n")
+		
+		content.WriteString(helpStyle.Render("Type custom value | Enter confirm | Esc cancel"))
+	}
 	
 	return content.String()
 }
@@ -797,26 +933,15 @@ func (m Model) viewSummaryScreen() string {
 
 // Helper function to build features from selected options
 func (m Model) buildFeatures() Features {
-	// Start with existing features if editing
+	// Always start with empty features - we'll build based on current selections
 	features := Features{}
-	if m.editingService {
-		if existingService, exists := m.config.Services[m.currentService]; exists {
-			features = existingService.Features
-		}
-	}
 	
 	// Firebase Auth
 	if m.selectedFeatures["firebaseauth"] {
-		role := m.detailInput
-		if role == "" {
-			if m.editingService && features.FirebaseAuth != nil {
-				// Keep existing value
-			} else {
-				role = "viewer"
-			}
-		}
-		if role != "" {
+		if role, exists := m.featureValues["firebaseauth"]; exists && role != "" {
 			features.FirebaseAuth = role
+		} else {
+			features.FirebaseAuth = "viewer" // Default value if no value stored
 		}
 	} else {
 		features.FirebaseAuth = nil
@@ -835,31 +960,25 @@ func (m Model) buildFeatures() Features {
 	
 	// CIDR
 	if m.selectedFeatures["cidr"] {
-		if m.detailInput != "" {
-			features.CIDR = strings.TrimSpace(m.detailInput)
-		} else if m.editingService {
-			// Keep existing value
-		} else {
-			features.CIDR = ""
+		if cidr, exists := m.featureValues["cidr"]; exists && cidr != "" {
+			features.CIDR = strings.TrimSpace(cidr)
 		}
-	} else {
-		features.CIDR = ""
 	}
 	
 	// Bucket features
-	features.BucketWriter = m.buildStringList("bucket_writer", features.BucketWriter)
-	features.BucketCreator = m.buildStringList("bucket_creator", features.BucketCreator)
-	features.BucketReader = m.buildStringList("bucket_reader", features.BucketReader)
+	features.BucketWriter = m.buildStringList("bucket_writer", nil)
+	features.BucketCreator = m.buildStringList("bucket_creator", nil)
+	features.BucketReader = m.buildStringList("bucket_reader", nil)
 	
 	// Pub/Sub Subscription features
-	features.SubscriptionSubscriber = m.buildStringList("subscription_subscriber", features.SubscriptionSubscriber)
-	features.SubscriptionViewer = m.buildStringList("subscription_viewer", features.SubscriptionViewer)
-	features.SubscriptionEditor = m.buildStringList("subscription_editor", features.SubscriptionEditor)
+	features.SubscriptionSubscriber = m.buildStringList("subscription_subscriber", nil)
+	features.SubscriptionViewer = m.buildStringList("subscription_viewer", nil)
+	features.SubscriptionEditor = m.buildStringList("subscription_editor", nil)
 	
 	// Pub/Sub Topic features
-	features.TopicPublisher = m.buildStringList("topic_publisher", features.TopicPublisher)
-	features.TopicViewer = m.buildStringList("topic_viewer", features.TopicViewer)
-	features.TopicEditor = m.buildStringList("topic_editor", features.TopicEditor)
+	features.TopicPublisher = m.buildStringList("topic_publisher", nil)
+	features.TopicViewer = m.buildStringList("topic_viewer", nil)
+	features.TopicEditor = m.buildStringList("topic_editor", nil)
 	
 	return features
 }
@@ -867,16 +986,120 @@ func (m Model) buildFeatures() Features {
 // Helper to build string lists for features
 func (m Model) buildStringList(featureName string, existingList []string) []string {
 	if m.selectedFeatures[featureName] {
-		if m.detailInput != "" {
-			items := strings.Split(m.detailInput, ",")
+		if value, exists := m.featureValues[featureName]; exists && value != "" {
+			items := strings.Split(value, ",")
 			for i, item := range items {
 				items[i] = strings.TrimSpace(item)
 			}
 			return items
-		} else if m.editingService {
-			// Keep existing value
-			return existingList
 		}
 	}
 	return []string{}
+}
+
+// Setup choices for different features
+func (m *Model) setupChoices(feature string) {
+	switch feature {
+	case "firebaseauth":
+		m.choices = []string{"viewer", "admin"}
+	case "cidr":
+		// For CIDR, we still need text input, so provide common examples as choices
+		m.choices = []string{"10.0.0.0/24", "192.168.0.0/16", "172.16.0.0/12", "Custom..."}
+	case "bucket_creator", "bucket_reader", "bucket_writer":
+		// Common bucket names as examples
+		m.choices = []string{"data-bucket", "images-bucket", "logs-bucket", "backup-bucket", "Custom..."}
+	case "subscription_subscriber", "subscription_viewer", "subscription_editor":
+		// Common subscription patterns
+		m.choices = []string{"user-events", "system-events", "data-updates", "notifications", "Custom..."}
+	case "topic_publisher", "topic_viewer", "topic_editor":
+		// Common topic patterns  
+		m.choices = []string{"user-events", "system-events", "data-updates", "notifications", "Custom..."}
+	default:
+		m.choices = []string{}
+	}
+}
+
+// Check if there are unsaved changes
+func (m Model) hasUnsavedChanges() bool {
+	// Check if selections have changed
+	for feature, selected := range m.selectedFeatures {
+		if selected != m.originalFeatures[feature] {
+			return true
+		}
+	}
+	
+	// Check if any originally selected feature is now deselected
+	for feature, originalSelected := range m.originalFeatures {
+		if originalSelected && !m.selectedFeatures[feature] {
+			return true
+		}
+	}
+	
+	// Check if values have changed for selected features
+	for feature, value := range m.featureValues {
+		if m.selectedFeatures[feature] && value != m.originalValues[feature] {
+			return true
+		}
+	}
+	
+	// Check if originally set values are now different
+	for feature, originalValue := range m.originalValues {
+		if m.selectedFeatures[feature] && m.featureValues[feature] != originalValue {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// Unsaved Changes Screen
+func (m Model) updateUnsavedChangesScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "y", "Y":
+		// Discard changes - go back without saving
+		if m.editingService {
+			m.screen = serviceListScreen
+		} else {
+			m.screen = serviceNameScreen
+		}
+		return m, nil
+		
+	case "n", "N", "esc":
+		// Keep editing - go back to feature selection
+		m.screen = featureSelectionScreen
+		return m, nil
+		
+	case "s", "S":
+		// Save changes and exit
+		service := Service{Features: m.buildFeatures()}
+		m.config.Services[m.currentService] = service
+		m.screen = serviceListScreen
+		return m, nil
+	}
+	
+	return m, nil
+}
+
+func (m Model) viewUnsavedChangesScreen() string {
+	var content strings.Builder
+	
+	content.WriteString(headerStyle.Render("Unsaved Changes"))
+	content.WriteString("\n\n")
+	
+	content.WriteString(warningStyle.Render("You have unsaved changes to this service."))
+	content.WriteString("\n\n")
+	
+	content.WriteString(accentStyle.Render("What would you like to do?"))
+	content.WriteString("\n\n")
+	
+	content.WriteString(errorStyle.Render("Y") + normalStyle.Render(" - Discard changes and exit"))
+	content.WriteString("\n")
+	content.WriteString(successStyle.Render("S") + normalStyle.Render(" - Save changes and exit"))
+	content.WriteString("\n")
+	content.WriteString(accentStyle.Render("N") + normalStyle.Render(" - Continue editing (ESC)"))
+	content.WriteString("\n\n")
+	
+	content.WriteString(helpStyle.Render("Press Y to discard, S to save, or N/ESC to continue editing"))
+	
+	return content.String()
 }

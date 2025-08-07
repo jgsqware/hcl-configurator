@@ -12,6 +12,7 @@ const (
 	serviceNameScreen
 	featureSelectionScreen
 	featureDetailsScreen
+	unsavedChangesScreen
 	summaryScreen
 )
 
@@ -31,6 +32,9 @@ type Model struct {
 	// Feature selection with search
 	featuresCursor   int
 	selectedFeatures map[string]bool
+	featureValues    map[string]string // Store actual feature values (like "viewer" for firebaseauth)
+	originalFeatures map[string]bool   // Original state for change detection
+	originalValues   map[string]string // Original values for change detection
 	searchMode       bool
 	searchInput      string
 	filteredFeatures []string
@@ -39,6 +43,8 @@ type Model struct {
 	// Feature details
 	detailInput    string
 	currentFeature string
+	choiceCursor   int
+	choices        []string
 	
 	// Terminal dimensions
 	width  int
@@ -127,6 +133,9 @@ func NewModelWithConfig(outputFile string, config *Config) Model {
 		outputFile:       outputFile,
 		config:           config,
 		selectedFeatures: make(map[string]bool),
+		featureValues:    make(map[string]string),
+		originalFeatures: make(map[string]bool),
+		originalValues:   make(map[string]string),
 	}
 }
 
@@ -156,6 +165,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateFeatureSelectionScreen(msg)
 		case featureDetailsScreen:
 			return m.updateFeatureDetailsScreen(msg)
+		case unsavedChangesScreen:
+			return m.updateUnsavedChangesScreen(msg)
 		case summaryScreen:
 			return m.updateSummaryScreen(msg)
 		}
@@ -176,6 +187,8 @@ func (m Model) View() string {
 		content = m.viewFeatureSelectionScreen()
 	case featureDetailsScreen:
 		content = m.viewFeatureDetailsScreen()
+	case unsavedChangesScreen:
+		content = m.viewUnsavedChangesScreen()
 	case summaryScreen:
 		content = m.viewSummaryScreen()
 	}
