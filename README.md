@@ -92,8 +92,8 @@ If no `-input` is specified but the output file exists, the application will aut
 
 📦 2 services configured:
 
-  ⚡ mobile-interface (8 features)
-► 🔧 datalog-business (3 features)  
+  ⚡ service-a (8 features)
+► 🔧 service-b (3 features)  
   ✨ Add new service
 
 Navigation: ↑/↓ navigate, Enter edit/add, d delete, s summary, Esc quit
@@ -125,15 +125,15 @@ Generates clean HCL with the standard Terraform locals structure:
 ```hcl
 locals {
   cloudrun_services = {
-    mobile-api = {
+    service-a = {
       features = {
         firebaseauth = "viewer"
         cloudrun_invoker = true
-        bucket_creator = ["datalog-dmz"]
+        bucket_creator = ["bucket-a"]
         firestore_access = true
       }
     }
-    data-processor = {
+    service-b = {
       features = {
         firestore_access = true
         bucket_reader = ["input-data"]
