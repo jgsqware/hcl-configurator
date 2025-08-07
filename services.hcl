@@ -3,7 +3,7 @@ locals {
     datalog-projection = {
       features = {
         firebaseauth = "admin"
-        bucket_writer = ["datalog-dmz"]
+        bucket_writer = ["device-brandings-autotuner"]
       }
     }
   }

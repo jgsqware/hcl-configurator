@@ -536,6 +536,10 @@ func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 			}
 			m.choiceCursor = 0
 			m.setupChoices(feature)
+			// Reset search state
+			m.choiceSearchMode = false
+			m.choiceSearchInput = ""
+			m.filteredChoices = []string{}
 			// Set cursor to existing choice if it exists
 			if m.detailInput != "" {
 				for i, choice := range m.choices {
@@ -745,7 +749,52 @@ func (m Model) viewFeatureSelectionScreen() string {
 
 // Feature Details Screen
 func (m Model) updateFeatureDetailsScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Initialize filtered choices if needed
+	if !m.choiceSearchMode && len(m.filteredChoices) == 0 && len(m.choices) > 0 {
+		m.filteredChoices = make([]string, len(m.choices))
+		copy(m.filteredChoices, m.choices)
+	}
+	
+	// Handle search mode input
+	if m.choiceSearchMode {
+		switch msg.String() {
+		case "enter", "esc":
+			m.choiceSearchMode = false
+			return m, nil
+			
+		case "backspace":
+			if len(m.choiceSearchInput) > 0 {
+				m.choiceSearchInput = m.choiceSearchInput[:len(m.choiceSearchInput)-1]
+				m.updateFilteredChoices()
+			}
+			return m, nil
+			
+		default:
+			if len(msg.String()) == 1 {
+				m.choiceSearchInput += msg.String()
+				m.updateFilteredChoices()
+				m.choiceCursor = 0
+			}
+			return m, nil
+		}
+	}
+	
+	// Get current choices (filtered or original)
+	currentChoices := m.choices
+	if len(m.filteredChoices) > 0 {
+		currentChoices = m.filteredChoices
+	}
+	
+	// Normal navigation mode
 	switch msg.String() {
+	case "/":
+		// Enable search mode only if we have multiple choices (not just "Create buckets.hcl first")
+		if len(m.choices) > 1 || (len(m.choices) == 1 && m.choices[0] != "Create buckets.hcl first") {
+			m.choiceSearchMode = true
+			m.choiceSearchInput = ""
+		}
+		return m, nil
+		
 	case "up", "k":
 		if m.choiceCursor > 0 {
 			m.choiceCursor--
@@ -753,14 +802,14 @@ func (m Model) updateFeatureDetailsScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 		
 	case "down", "j":
-		if m.choiceCursor < len(m.choices)-1 {
+		if m.choiceCursor < len(currentChoices)-1 {
 			m.choiceCursor++
 		}
 		return m, nil
 		
 	case "enter":
-		if len(m.choices) > 0 {
-			selectedChoice := m.choices[m.choiceCursor]
+		if len(currentChoices) > 0 {
+			selectedChoice := currentChoices[m.choiceCursor]
 			if selectedChoice == "Create buckets.hcl first" {
 				// Don't allow selection - just return without doing anything
 				return m, nil
@@ -768,6 +817,9 @@ func (m Model) updateFeatureDetailsScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				// Switch to text input mode for custom values
 				m.detailInput = ""
 				m.choices = []string{} // Clear choices to enable text input
+				m.filteredChoices = []string{}
+				m.choiceSearchMode = false
+				m.choiceSearchInput = ""
 				return m, nil
 			} else {
 				// Use the selected choice
@@ -821,11 +873,24 @@ func (m Model) viewFeatureDetailsScreen() string {
 	content.WriteString("\n")
 	
 	if len(m.choices) > 0 {
+		// Get current choices (filtered or original)
+		currentChoices := m.choices
+		if len(m.filteredChoices) > 0 {
+			currentChoices = m.filteredChoices
+		}
+		
 		// Show choice list
 		content.WriteString(accentStyle.Render("Select an option:"))
-		content.WriteString("\n\n")
+		content.WriteString("\n")
 		
-		for i, choice := range m.choices {
+		// Show search status if searching
+		if len(m.filteredChoices) < len(m.choices) && m.choiceSearchInput != "" {
+			content.WriteString(accentStyle.Render(fmt.Sprintf("(%d matches)", len(currentChoices))))
+			content.WriteString("\n")
+		}
+		content.WriteString("\n")
+		
+		for i, choice := range currentChoices {
 			var line string
 			if i == m.choiceCursor {
 				line = selectedStyle.Render("> " + choice)
@@ -844,11 +909,23 @@ func (m Model) viewFeatureDetailsScreen() string {
 			content.WriteString("\n\n")
 			content.WriteString(normalStyle.Render("Please create a buckets.hcl file with your bucket definitions:"))
 			content.WriteString("\n")
-			content.WriteString(helpStyle.Render("buckets = { bucket-name = {} }"))
+			content.WriteString(helpStyle.Render("locals { buckets = { bucket-name = {} } }"))
 			content.WriteString("\n\n")
 			content.WriteString(helpStyle.Render("Esc to cancel"))
 		} else {
-			content.WriteString(helpStyle.Render("↑/↓ navigate | Enter select | Esc cancel"))
+			// Show search input at bottom if in search mode
+			if m.choiceSearchMode {
+				content.WriteString(searchStyle.Render(fmt.Sprintf("/%s_", m.choiceSearchInput)))
+				content.WriteString("\n")
+				content.WriteString(helpStyle.Render("Type to search | Enter/Esc to exit search"))
+			} else {
+				// Show navigation help and search option
+				if len(m.choices) > 1 || (len(m.choices) == 1 && m.choices[0] != "Create buckets.hcl first") {
+					content.WriteString(helpStyle.Render("↑/↓ navigate | Enter select | / search | Esc cancel"))
+				} else {
+					content.WriteString(helpStyle.Render("↑/↓ navigate | Enter select | Esc cancel"))
+				}
+			}
 		}
 	} else {
 		// Show text input (custom mode)
@@ -1125,4 +1202,20 @@ func (m Model) viewUnsavedChangesScreen() string {
 	content.WriteString(helpStyle.Render("Press Y to discard, S to save, or N/ESC to continue editing"))
 	
 	return content.String()
+}
+
+// Update filtered choices based on search input
+func (m *Model) updateFilteredChoices() {
+	if m.choiceSearchInput == "" {
+		m.filteredChoices = make([]string, len(m.choices))
+		copy(m.filteredChoices, m.choices)
+		return
+	}
+	
+	// Use fuzzy search on choices
+	matches := fuzzy.Find(m.choiceSearchInput, m.choices)
+	m.filteredChoices = make([]string, len(matches))
+	for i, match := range matches {
+		m.filteredChoices[i] = m.choices[match.Index]
+	}
 }

@@ -41,11 +41,14 @@ type Model struct {
 	viewportOffset   int  // For scrolling
 	
 	// Feature details
-	detailInput    string
-	currentFeature string
-	choiceCursor   int
-	choices        []string
-	bucketNames    []string  // Available bucket names from buckets.hcl
+	detailInput     string
+	currentFeature  string
+	choiceCursor    int
+	choices         []string
+	filteredChoices []string  // Filtered choices for search
+	choiceSearchMode bool     // Search mode for choices
+	choiceSearchInput string  // Search input for choices
+	bucketNames     []string  // Available bucket names from buckets.hcl
 	
 	// Terminal dimensions
 	width  int
