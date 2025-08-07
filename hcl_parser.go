@@ -257,3 +257,55 @@ func parsePostgresGrants(val cty.Value) (*PostgresGrants, error) {
 	
 	return grants, nil
 }
+
+// Parse buckets.hcl file to get available bucket names
+func loadBucketNames() []string {
+	parser := hclparse.NewParser()
+	file, diags := parser.ParseHCLFile("buckets.hcl")
+	if diags.HasErrors() {
+		return []string{} // File doesn't exist or has errors
+	}
+	
+	content, diags := file.Body.Content(&hcl.BodySchema{
+		Blocks: []hcl.BlockHeaderSchema{
+			{Type: "locals"},
+		},
+	})
+	if diags.HasErrors() {
+		return []string{}
+	}
+	
+	// Look for locals block
+	for _, block := range content.Blocks {
+		if block.Type == "locals" {
+			localsContent, diags := block.Body.Content(&hcl.BodySchema{
+				Attributes: []hcl.AttributeSchema{
+					{Name: "buckets"},
+				},
+			})
+			if diags.HasErrors() {
+				continue
+			}
+			
+			if bucketsAttr, exists := localsContent.Attributes["buckets"]; exists {
+				val, diags := bucketsAttr.Expr.Value(nil)
+				if diags.HasErrors() {
+					continue
+				}
+				
+				if !val.Type().IsObjectType() {
+					continue
+				}
+				
+				bucketNames := make([]string, 0)
+				for bucketName := range val.AsValueMap() {
+					bucketNames = append(bucketNames, bucketName)
+				}
+				
+				return bucketNames
+			}
+		}
+	}
+	
+	return []string{}
+}

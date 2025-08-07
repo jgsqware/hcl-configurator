@@ -761,7 +761,10 @@ func (m Model) updateFeatureDetailsScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		if len(m.choices) > 0 {
 			selectedChoice := m.choices[m.choiceCursor]
-			if selectedChoice == "Custom..." {
+			if selectedChoice == "Create buckets.hcl first" {
+				// Don't allow selection - just return without doing anything
+				return m, nil
+			} else if selectedChoice == "Custom..." {
 				// Switch to text input mode for custom values
 				m.detailInput = ""
 				m.choices = []string{} // Clear choices to enable text input
@@ -834,7 +837,19 @@ func (m Model) viewFeatureDetailsScreen() string {
 		}
 		
 		content.WriteString("\n")
-		content.WriteString(helpStyle.Render("↑/↓ navigate | Enter select | Esc cancel"))
+		
+		// Show special message if "Create buckets.hcl first" is selected
+		if len(m.choices) == 1 && m.choices[0] == "Create buckets.hcl first" {
+			content.WriteString(warningStyle.Render("No buckets.hcl file found!"))
+			content.WriteString("\n\n")
+			content.WriteString(normalStyle.Render("Please create a buckets.hcl file with your bucket definitions:"))
+			content.WriteString("\n")
+			content.WriteString(helpStyle.Render("buckets = { bucket-name = {} }"))
+			content.WriteString("\n\n")
+			content.WriteString(helpStyle.Render("Esc to cancel"))
+		} else {
+			content.WriteString(helpStyle.Render("↑/↓ navigate | Enter select | Esc cancel"))
+		}
 	} else {
 		// Show text input (custom mode)
 		content.WriteString(accentStyle.Render("Enter custom value:"))
@@ -1006,8 +1021,16 @@ func (m *Model) setupChoices(feature string) {
 		// For CIDR, we still need text input, so provide common examples as choices
 		m.choices = []string{"10.0.0.0/24", "192.168.0.0/16", "172.16.0.0/12", "Custom..."}
 	case "bucket_creator", "bucket_reader", "bucket_writer":
-		// Common bucket names as examples
-		m.choices = []string{"data-bucket", "images-bucket", "logs-bucket", "backup-bucket", "Custom..."}
+		// Use bucket names from buckets.hcl or show message
+		if len(m.bucketNames) > 0 {
+			// Add buckets from buckets.hcl with Custom option
+			m.choices = make([]string, len(m.bucketNames)+1)
+			copy(m.choices, m.bucketNames)
+			m.choices[len(m.bucketNames)] = "Custom..."
+		} else {
+			// No buckets.hcl file found
+			m.choices = []string{"Create buckets.hcl first"}
+		}
 	case "subscription_subscriber", "subscription_viewer", "subscription_editor":
 		// Common subscription patterns
 		m.choices = []string{"user-events", "system-events", "data-updates", "notifications", "Custom..."}

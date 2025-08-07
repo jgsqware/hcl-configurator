@@ -45,6 +45,7 @@ type Model struct {
 	currentFeature string
 	choiceCursor   int
 	choices        []string
+	bucketNames    []string  // Available bucket names from buckets.hcl
 	
 	// Terminal dimensions
 	width  int
@@ -136,6 +137,7 @@ func NewModelWithConfig(outputFile string, config *Config) Model {
 		featureValues:    make(map[string]string),
 		originalFeatures: make(map[string]bool),
 		originalValues:   make(map[string]string),
+		bucketNames:      loadBucketNames(),
 	}
 }
 
