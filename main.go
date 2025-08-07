@@ -12,7 +12,7 @@ import (
 func main() {
 	var (
 		inputFile  = flag.String("input", "", "Input HCL file to read and edit")
-		outputFile = flag.String("output", "terraform.hcl", "Output HCL file")
+		outputFile = flag.String("output", "services.hcl", "Output HCL file")
 	)
 	flag.Parse()
 

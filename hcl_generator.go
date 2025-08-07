@@ -66,60 +66,66 @@ func generateFeatures(builder *strings.Builder, features Features) {
 		}
 	}
 	
-	// Handle cloudrun_invoker
+	// Boolean features
+	if features.FirebaseCloudMessagingSender {
+		builder.WriteString("        firebase_cloudmessaging_sender = true\n")
+	}
+	if features.FirebaseCloudMessagingViewer {
+		builder.WriteString("        firebase_cloudmessaging_viewer = true\n")
+	}
 	if features.CloudRunInvoker {
 		builder.WriteString("        cloudrun_invoker = true\n")
 	}
-	
-	// Handle bucket_creator
-	if len(features.BucketCreator) > 0 {
-		builder.WriteString("        bucket_creator = [")
-		for i, bucket := range features.BucketCreator {
-			if i > 0 {
-				builder.WriteString(",")
-			}
-			builder.WriteString(fmt.Sprintf("\"%s\"", bucket))
-		}
-		builder.WriteString("]\n")
+	if features.EventarcSubrole {
+		builder.WriteString("        eventarc_subrole = true\n")
 	}
-	
-	// Handle firestore_access
-	if features.FirestoreAccess {
-		builder.WriteString("        firestore_access = true\n")
+	if features.FirestoreReader {
+		builder.WriteString("        firestore_reader = true\n")
 	}
-	
-	// Handle bucket_reader
-	if len(features.BucketReader) > 0 {
-		builder.WriteString("        bucket_reader = [")
-		for i, bucket := range features.BucketReader {
-			if i > 0 {
-				builder.WriteString(",")
-			}
-			builder.WriteString(fmt.Sprintf("\"%s\"", bucket))
-		}
-		builder.WriteString("]\n")
+	if features.FirestoreWriter {
+		builder.WriteString("        firestore_writer = true\n")
 	}
-	
-	// Handle bucket_writer
-	if len(features.BucketWriter) > 0 {
-		builder.WriteString("        bucket_writer = [")
-		for i, bucket := range features.BucketWriter {
-			if i > 0 {
-				builder.WriteString(",")
-			}
-			builder.WriteString(fmt.Sprintf("\"%s\"", bucket))
-		}
-		builder.WriteString("]\n")
-	}
-	
-	// Handle mysql_access
 	if features.MysqlAccess {
 		builder.WriteString("        mysql_access = true\n")
 	}
-	
-	// Handle postgres_access
 	if features.PostgresAccess {
 		builder.WriteString("        postgres_access = true\n")
+	}
+	if features.EnableProfiling {
+		builder.WriteString("        enable_profiling = true\n")
+	}
+	
+	// Handle CIDR
+	if features.CIDR != "" {
+		builder.WriteString(fmt.Sprintf("        cidr = \"%s\"\n", features.CIDR))
+	}
+	
+	// Bucket features
+	generateStringList(builder, "bucket_writer", features.BucketWriter)
+	generateStringList(builder, "bucket_creator", features.BucketCreator)
+	generateStringList(builder, "bucket_reader", features.BucketReader)
+	
+	// Pub/Sub Subscription features
+	generateStringList(builder, "subscription_subscriber", features.SubscriptionSubscriber)
+	generateStringList(builder, "subscription_viewer", features.SubscriptionViewer)
+	generateStringList(builder, "subscription_editor", features.SubscriptionEditor)
+	
+	// Pub/Sub Topic features
+	generateStringList(builder, "topic_publisher", features.TopicPublisher)
+	generateStringList(builder, "topic_viewer", features.TopicViewer)
+	generateStringList(builder, "topic_editor", features.TopicEditor)
+}
+
+func generateStringList(builder *strings.Builder, name string, items []string) {
+	if len(items) > 0 {
+		builder.WriteString(fmt.Sprintf("        %s = [", name))
+		for i, item := range items {
+			if i > 0 {
+				builder.WriteString(",")
+			}
+			builder.WriteString(fmt.Sprintf("\"%s\"", item))
+		}
+		builder.WriteString("]\n")
 	}
 }
 
@@ -127,6 +133,22 @@ func generateMysqlGrants(builder *strings.Builder, grants *MysqlGrants) {
 	if len(grants.Read) > 0 {
 		builder.WriteString("        read = [\n")
 		for _, table := range grants.Read {
+			builder.WriteString(fmt.Sprintf("          \"%s\",\n", table))
+		}
+		builder.WriteString("        ]\n")
+	}
+	
+	if len(grants.ReadWrite) > 0 {
+		builder.WriteString("        read_write = [\n")
+		for _, table := range grants.ReadWrite {
+			builder.WriteString(fmt.Sprintf("          \"%s\",\n", table))
+		}
+		builder.WriteString("        ]\n")
+	}
+	
+	if len(grants.ReadWriteDelete) > 0 {
+		builder.WriteString("        read_write_delete = [\n")
+		for _, table := range grants.ReadWriteDelete {
 			builder.WriteString(fmt.Sprintf("          \"%s\",\n", table))
 		}
 		builder.WriteString("        ]\n")

@@ -131,7 +131,7 @@ func parseFeatures(val cty.Value) (Features, error) {
 	
 	featuresMap := val.AsValueMap()
 	
-	// Parse each feature
+	// Parse firebaseauth
 	if v, exists := featuresMap["firebaseauth"]; exists && !v.IsNull() {
 		if v.Type() == cty.String {
 			features.FirebaseAuth = v.AsString()
@@ -140,51 +140,50 @@ func parseFeatures(val cty.Value) (Features, error) {
 		}
 	}
 	
-	if v, exists := featuresMap["cloudrun_invoker"]; exists && !v.IsNull() && v.Type() == cty.Bool {
-		features.CloudRunInvoker = v.True()
+	// Parse boolean features
+	parseBoolFeature := func(name string, target *bool) {
+		if v, exists := featuresMap[name]; exists && !v.IsNull() && v.Type() == cty.Bool {
+			*target = v.True()
+		}
 	}
 	
-	if v, exists := featuresMap["bucket_creator"]; exists && !v.IsNull() {
-		if v.Type().IsListType() || v.Type().IsTupleType() {
-			var buckets []string
-			err := gocty.FromCtyValue(v, &buckets)
-			if err == nil {
-				features.BucketCreator = buckets
+	parseBoolFeature("firebase_cloudmessaging_sender", &features.FirebaseCloudMessagingSender)
+	parseBoolFeature("firebase_cloudmessaging_viewer", &features.FirebaseCloudMessagingViewer)
+	parseBoolFeature("cloudrun_invoker", &features.CloudRunInvoker)
+	parseBoolFeature("eventarc_subrole", &features.EventarcSubrole)
+	parseBoolFeature("firestore_reader", &features.FirestoreReader)
+	parseBoolFeature("firestore_writer", &features.FirestoreWriter)
+	parseBoolFeature("mysql_access", &features.MysqlAccess)
+	parseBoolFeature("postgres_access", &features.PostgresAccess)
+	parseBoolFeature("enable_profiling", &features.EnableProfiling)
+	
+	// Parse CIDR
+	if v, exists := featuresMap["cidr"]; exists && !v.IsNull() && v.Type() == cty.String {
+		features.CIDR = v.AsString()
+	}
+	
+	// Parse string list features
+	parseStringList := func(name string, target *[]string) {
+		if v, exists := featuresMap[name]; exists && !v.IsNull() {
+			if v.Type().IsListType() || v.Type().IsTupleType() {
+				var items []string
+				err := gocty.FromCtyValue(v, &items)
+				if err == nil {
+					*target = items
+				}
 			}
 		}
 	}
 	
-	if v, exists := featuresMap["firestore_access"]; exists && !v.IsNull() && v.Type() == cty.Bool {
-		features.FirestoreAccess = v.True()
-	}
-	
-	if v, exists := featuresMap["bucket_reader"]; exists && !v.IsNull() {
-		if v.Type().IsListType() || v.Type().IsTupleType() {
-			var buckets []string
-			err := gocty.FromCtyValue(v, &buckets)
-			if err == nil {
-				features.BucketReader = buckets
-			}
-		}
-	}
-	
-	if v, exists := featuresMap["bucket_writer"]; exists && !v.IsNull() {
-		if v.Type().IsListType() || v.Type().IsTupleType() {
-			var buckets []string
-			err := gocty.FromCtyValue(v, &buckets)
-			if err == nil {
-				features.BucketWriter = buckets
-			}
-		}
-	}
-	
-	if v, exists := featuresMap["mysql_access"]; exists && !v.IsNull() && v.Type() == cty.Bool {
-		features.MysqlAccess = v.True()
-	}
-	
-	if v, exists := featuresMap["postgres_access"]; exists && !v.IsNull() && v.Type() == cty.Bool {
-		features.PostgresAccess = v.True()
-	}
+	parseStringList("bucket_writer", &features.BucketWriter)
+	parseStringList("bucket_creator", &features.BucketCreator)
+	parseStringList("bucket_reader", &features.BucketReader)
+	parseStringList("subscription_subscriber", &features.SubscriptionSubscriber)
+	parseStringList("subscription_viewer", &features.SubscriptionViewer)
+	parseStringList("subscription_editor", &features.SubscriptionEditor)
+	parseStringList("topic_publisher", &features.TopicPublisher)
+	parseStringList("topic_viewer", &features.TopicViewer)
+	parseStringList("topic_editor", &features.TopicEditor)
 	
 	return features, nil
 }
@@ -198,15 +197,21 @@ func parseMysqlGrants(val cty.Value) (*MysqlGrants, error) {
 	
 	grantsMap := val.AsValueMap()
 	
-	if v, exists := grantsMap["read"]; exists && !v.IsNull() {
-		if v.Type().IsListType() || v.Type().IsTupleType() {
-			var tables []string
-			err := gocty.FromCtyValue(v, &tables)
-			if err == nil {
-				grants.Read = tables
+	parseStringList := func(name string, target *[]string) {
+		if v, exists := grantsMap[name]; exists && !v.IsNull() {
+			if v.Type().IsListType() || v.Type().IsTupleType() {
+				var items []string
+				err := gocty.FromCtyValue(v, &items)
+				if err == nil {
+					*target = items
+				}
 			}
 		}
 	}
+	
+	parseStringList("read", &grants.Read)
+	parseStringList("read_write", &grants.ReadWrite)
+	parseStringList("read_write_delete", &grants.ReadWriteDelete)
 	
 	return grants, nil
 }

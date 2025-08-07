@@ -127,25 +127,61 @@ func (m Model) countFeatures(features Features) int {
 	if features.FirebaseAuth != nil {
 		count++
 	}
+	if features.FirebaseCloudMessagingSender {
+		count++
+	}
+	if features.FirebaseCloudMessagingViewer {
+		count++
+	}
 	if features.CloudRunInvoker {
+		count++
+	}
+	if features.EventarcSubrole {
+		count++
+	}
+	if features.CIDR != "" {
+		count++
+	}
+	if len(features.BucketWriter) > 0 {
 		count++
 	}
 	if len(features.BucketCreator) > 0 {
 		count++
 	}
-	if features.FirestoreAccess {
-		count++
-	}
 	if len(features.BucketReader) > 0 {
 		count++
 	}
-	if len(features.BucketWriter) > 0 {
+	if len(features.SubscriptionSubscriber) > 0 {
+		count++
+	}
+	if len(features.SubscriptionViewer) > 0 {
+		count++
+	}
+	if len(features.SubscriptionEditor) > 0 {
+		count++
+	}
+	if len(features.TopicPublisher) > 0 {
+		count++
+	}
+	if len(features.TopicViewer) > 0 {
+		count++
+	}
+	if len(features.TopicEditor) > 0 {
+		count++
+	}
+	if features.FirestoreReader {
+		count++
+	}
+	if features.FirestoreWriter {
 		count++
 	}
 	if features.MysqlAccess {
 		count++
 	}
 	if features.PostgresAccess {
+		count++
+	}
+	if features.EnableProfiling {
 		count++
 	}
 	return count
@@ -156,28 +192,63 @@ func (m *Model) loadExistingFeatures(service Service) {
 	
 	if features.FirebaseAuth != nil {
 		m.selectedFeatures["firebaseauth"] = true
-		// Store the existing value for later use in buildFeatures
+	}
+	if features.FirebaseCloudMessagingSender {
+		m.selectedFeatures["firebase_cloudmessaging_sender"] = true
+	}
+	if features.FirebaseCloudMessagingViewer {
+		m.selectedFeatures["firebase_cloudmessaging_viewer"] = true
 	}
 	if features.CloudRunInvoker {
 		m.selectedFeatures["cloudrun_invoker"] = true
 	}
+	if features.EventarcSubrole {
+		m.selectedFeatures["eventarc_subrole"] = true
+	}
+	if features.CIDR != "" {
+		m.selectedFeatures["cidr"] = true
+	}
+	if len(features.BucketWriter) > 0 {
+		m.selectedFeatures["bucket_writer"] = true
+	}
 	if len(features.BucketCreator) > 0 {
 		m.selectedFeatures["bucket_creator"] = true
-	}
-	if features.FirestoreAccess {
-		m.selectedFeatures["firestore_access"] = true
 	}
 	if len(features.BucketReader) > 0 {
 		m.selectedFeatures["bucket_reader"] = true
 	}
-	if len(features.BucketWriter) > 0 {
-		m.selectedFeatures["bucket_writer"] = true
+	if len(features.SubscriptionSubscriber) > 0 {
+		m.selectedFeatures["subscription_subscriber"] = true
+	}
+	if len(features.SubscriptionViewer) > 0 {
+		m.selectedFeatures["subscription_viewer"] = true
+	}
+	if len(features.SubscriptionEditor) > 0 {
+		m.selectedFeatures["subscription_editor"] = true
+	}
+	if len(features.TopicPublisher) > 0 {
+		m.selectedFeatures["topic_publisher"] = true
+	}
+	if len(features.TopicViewer) > 0 {
+		m.selectedFeatures["topic_viewer"] = true
+	}
+	if len(features.TopicEditor) > 0 {
+		m.selectedFeatures["topic_editor"] = true
+	}
+	if features.FirestoreReader {
+		m.selectedFeatures["firestore_reader"] = true
+	}
+	if features.FirestoreWriter {
+		m.selectedFeatures["firestore_writer"] = true
 	}
 	if features.MysqlAccess {
 		m.selectedFeatures["mysql_access"] = true
 	}
 	if features.PostgresAccess {
 		m.selectedFeatures["postgres_access"] = true
+	}
+	if features.EnableProfiling {
+		m.selectedFeatures["enable_profiling"] = true
 	}
 }
 
@@ -243,13 +314,25 @@ func (m Model) viewServiceNameScreen() string {
 func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	features := []string{
 		"firebaseauth",
-		"cloudrun_invoker", 
+		"firebase_cloudmessaging_sender",
+		"firebase_cloudmessaging_viewer",
+		"cloudrun_invoker",
+		"eventarc_subrole",
+		"cidr",
+		"bucket_writer",
 		"bucket_creator",
-		"firestore_access",
 		"bucket_reader",
-		"bucket_writer", 
+		"subscription_subscriber",
+		"subscription_viewer",
+		"subscription_editor",
+		"topic_publisher",
+		"topic_viewer", 
+		"topic_editor",
+		"firestore_reader",
+		"firestore_writer",
 		"mysql_access",
 		"postgres_access",
+		"enable_profiling",
 	}
 	
 	switch msg.String() {
@@ -267,7 +350,22 @@ func (m Model) updateFeatureSelectionScreen(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		
 	case " ":
 		feature := features[m.featuresCursor]
-		if feature == "firebaseauth" || feature == "bucket_creator" || feature == "bucket_reader" || feature == "bucket_writer" {
+		// Features that need additional input
+		needsInput := []string{
+			"firebaseauth", "cidr", "bucket_creator", "bucket_reader", "bucket_writer",
+			"subscription_subscriber", "subscription_viewer", "subscription_editor",
+			"topic_publisher", "topic_viewer", "topic_editor",
+		}
+		
+		requiresInput := false
+		for _, inputFeature := range needsInput {
+			if feature == inputFeature {
+				requiresInput = true
+				break
+			}
+		}
+		
+		if requiresInput {
 			// These features need additional input
 			m.currentFeature = feature
 			m.detailInput = ""
@@ -310,24 +408,48 @@ func (m Model) viewFeatureSelectionScreen() string {
 	
 	features := []string{
 		"firebaseauth",
+		"firebase_cloudmessaging_sender",
+		"firebase_cloudmessaging_viewer",
 		"cloudrun_invoker",
-		"bucket_creator", 
-		"firestore_access",
-		"bucket_reader",
+		"eventarc_subrole",
+		"cidr",
 		"bucket_writer",
+		"bucket_creator",
+		"bucket_reader",
+		"subscription_subscriber",
+		"subscription_viewer",
+		"subscription_editor",
+		"topic_publisher",
+		"topic_viewer", 
+		"topic_editor",
+		"firestore_reader",
+		"firestore_writer",
 		"mysql_access",
 		"postgres_access",
+		"enable_profiling",
 	}
 	
 	descriptions := map[string]string{
-		"firebaseauth":     "Firebase Authentication (requires role)",
-		"cloudrun_invoker": "Cloud Run Invoker permissions",
-		"bucket_creator":   "Storage bucket creator access (requires bucket names)",
-		"firestore_access": "Firestore database access",
-		"bucket_reader":    "Storage bucket reader access (requires bucket names)",
-		"bucket_writer":    "Storage bucket writer access (requires bucket names)",
-		"mysql_access":     "MySQL database access",
-		"postgres_access":  "PostgreSQL database access",
+		"firebaseauth":                    "Firebase Authentication (viewer/admin)",
+		"firebase_cloudmessaging_sender":  "Firebase Cloud Messaging sender",
+		"firebase_cloudmessaging_viewer":  "Firebase Cloud Messaging viewer",
+		"cloudrun_invoker":                "Cloud Run Invoker permissions",
+		"eventarc_subrole":                "Eventarc subscription role",
+		"cidr":                            "CIDR block access (requires CIDR)",
+		"bucket_writer":                   "Storage bucket writer (requires bucket names)",
+		"bucket_creator":                  "Storage bucket creator (requires bucket names)",
+		"bucket_reader":                   "Storage bucket reader (requires bucket names)",
+		"subscription_subscriber":        "Pub/Sub subscription subscriber (requires names)",
+		"subscription_viewer":            "Pub/Sub subscription viewer (requires names)",
+		"subscription_editor":            "Pub/Sub subscription editor (requires names)",
+		"topic_publisher":                "Pub/Sub topic publisher (requires names)",
+		"topic_viewer":                   "Pub/Sub topic viewer (requires names)",
+		"topic_editor":                   "Pub/Sub topic editor (requires names)",
+		"firestore_reader":               "Firestore database reader",
+		"firestore_writer":               "Firestore database writer",
+		"mysql_access":                   "MySQL database access",
+		"postgres_access":                "PostgreSQL database access",
+		"enable_profiling":               "Enable application profiling",
 	}
 	
 	for i, feature := range features {
@@ -397,9 +519,15 @@ func (m Model) viewFeatureDetailsScreen() string {
 	var prompt string
 	switch m.currentFeature {
 	case "firebaseauth":
-		prompt = "Enter Firebase Auth role (e.g., 'viewer', 'editor'):"
+		prompt = "Enter Firebase Auth role ('viewer' or 'admin'):"
+	case "cidr":
+		prompt = "Enter CIDR block (e.g., '10.0.0.0/24'):"
 	case "bucket_creator", "bucket_reader", "bucket_writer":
 		prompt = "Enter bucket names (comma-separated):"
+	case "subscription_subscriber", "subscription_viewer", "subscription_editor":
+		prompt = "Enter Pub/Sub subscription names (comma-separated):"
+	case "topic_publisher", "topic_viewer", "topic_editor":
+		prompt = "Enter Pub/Sub topic names (comma-separated):"
 	}
 	
 	content.WriteString(headerStyle.Render(fmt.Sprintf("Configure %s", m.currentFeature)))
@@ -441,26 +569,50 @@ func (m Model) viewSummaryScreen() string {
 		if service.Features.FirebaseAuth != nil {
 			content.WriteString(fmt.Sprintf("  • Firebase Auth: %v\n", service.Features.FirebaseAuth))
 		}
+		if service.Features.FirebaseCloudMessagingSender {
+			content.WriteString("  • Firebase Cloud Messaging Sender: enabled\n")
+		}
+		if service.Features.FirebaseCloudMessagingViewer {
+			content.WriteString("  • Firebase Cloud Messaging Viewer: enabled\n")
+		}
 		if service.Features.CloudRunInvoker {
 			content.WriteString("  • Cloud Run Invoker: enabled\n")
+		}
+		if service.Features.EventarcSubrole {
+			content.WriteString("  • Eventarc Subrole: enabled\n")
+		}
+		if service.Features.CIDR != "" {
+			content.WriteString(fmt.Sprintf("  • CIDR: %s\n", service.Features.CIDR))
+		}
+		if len(service.Features.BucketWriter) > 0 {
+			content.WriteString(fmt.Sprintf("  • Bucket Writer: %v\n", service.Features.BucketWriter))
 		}
 		if len(service.Features.BucketCreator) > 0 {
 			content.WriteString(fmt.Sprintf("  • Bucket Creator: %v\n", service.Features.BucketCreator))
 		}
-		if service.Features.FirestoreAccess {
-			content.WriteString("  • Firestore Access: enabled\n")
-		}
 		if len(service.Features.BucketReader) > 0 {
 			content.WriteString(fmt.Sprintf("  • Bucket Reader: %v\n", service.Features.BucketReader))
 		}
-		if len(service.Features.BucketWriter) > 0 {
-			content.WriteString(fmt.Sprintf("  • Bucket Writer: %v\n", service.Features.BucketWriter))
+		if len(service.Features.SubscriptionSubscriber) > 0 {
+			content.WriteString(fmt.Sprintf("  • Subscription Subscriber: %v\n", service.Features.SubscriptionSubscriber))
+		}
+		if len(service.Features.TopicPublisher) > 0 {
+			content.WriteString(fmt.Sprintf("  • Topic Publisher: %v\n", service.Features.TopicPublisher))
+		}
+		if service.Features.FirestoreReader {
+			content.WriteString("  • Firestore Reader: enabled\n")
+		}
+		if service.Features.FirestoreWriter {
+			content.WriteString("  • Firestore Writer: enabled\n")
 		}
 		if service.Features.MysqlAccess {
 			content.WriteString("  • MySQL Access: enabled\n")
 		}
 		if service.Features.PostgresAccess {
 			content.WriteString("  • PostgreSQL Access: enabled\n")
+		}
+		if service.Features.EnableProfiling {
+			content.WriteString("  • Profiling: enabled\n")
 		}
 		content.WriteString("\n")
 	}
@@ -480,7 +632,7 @@ func (m Model) buildFeatures() Features {
 		}
 	}
 	
-	// Apply selected features (this will override existing ones)
+	// Firebase Auth
 	if m.selectedFeatures["firebaseauth"] {
 		role := m.detailInput
 		if role == "" {
@@ -494,75 +646,64 @@ func (m Model) buildFeatures() Features {
 			features.FirebaseAuth = role
 		}
 	} else {
-		// Feature not selected, remove it
 		features.FirebaseAuth = nil
 	}
 	
-	if m.selectedFeatures["cloudrun_invoker"] {
-		features.CloudRunInvoker = true
-	} else {
-		features.CloudRunInvoker = false
-	}
+	// Boolean features
+	features.FirebaseCloudMessagingSender = m.selectedFeatures["firebase_cloudmessaging_sender"]
+	features.FirebaseCloudMessagingViewer = m.selectedFeatures["firebase_cloudmessaging_viewer"]
+	features.CloudRunInvoker = m.selectedFeatures["cloudrun_invoker"]
+	features.EventarcSubrole = m.selectedFeatures["eventarc_subrole"]
+	features.FirestoreReader = m.selectedFeatures["firestore_reader"]
+	features.FirestoreWriter = m.selectedFeatures["firestore_writer"]
+	features.MysqlAccess = m.selectedFeatures["mysql_access"]
+	features.PostgresAccess = m.selectedFeatures["postgres_access"]
+	features.EnableProfiling = m.selectedFeatures["enable_profiling"]
 	
-	if m.selectedFeatures["bucket_creator"] {
+	// CIDR
+	if m.selectedFeatures["cidr"] {
 		if m.detailInput != "" {
-			buckets := strings.Split(m.detailInput, ",")
-			for i, bucket := range buckets {
-				buckets[i] = strings.TrimSpace(bucket)
-			}
-			features.BucketCreator = buckets
-		} else if !m.editingService {
-			features.BucketCreator = []string{}
+			features.CIDR = strings.TrimSpace(m.detailInput)
+		} else if m.editingService {
+			// Keep existing value
+		} else {
+			features.CIDR = ""
 		}
 	} else {
-		features.BucketCreator = []string{}
+		features.CIDR = ""
 	}
 	
-	if m.selectedFeatures["firestore_access"] {
-		features.FirestoreAccess = true
-	} else {
-		features.FirestoreAccess = false
-	}
+	// Bucket features
+	features.BucketWriter = m.buildStringList("bucket_writer", features.BucketWriter)
+	features.BucketCreator = m.buildStringList("bucket_creator", features.BucketCreator)
+	features.BucketReader = m.buildStringList("bucket_reader", features.BucketReader)
 	
-	if m.selectedFeatures["bucket_reader"] {
-		if m.detailInput != "" {
-			buckets := strings.Split(m.detailInput, ",")
-			for i, bucket := range buckets {
-				buckets[i] = strings.TrimSpace(bucket)
-			}
-			features.BucketReader = buckets
-		} else if !m.editingService {
-			features.BucketReader = []string{}
-		}
-	} else {
-		features.BucketReader = []string{}
-	}
+	// Pub/Sub Subscription features
+	features.SubscriptionSubscriber = m.buildStringList("subscription_subscriber", features.SubscriptionSubscriber)
+	features.SubscriptionViewer = m.buildStringList("subscription_viewer", features.SubscriptionViewer)
+	features.SubscriptionEditor = m.buildStringList("subscription_editor", features.SubscriptionEditor)
 	
-	if m.selectedFeatures["bucket_writer"] {
-		if m.detailInput != "" {
-			buckets := strings.Split(m.detailInput, ",")
-			for i, bucket := range buckets {
-				buckets[i] = strings.TrimSpace(bucket)
-			}
-			features.BucketWriter = buckets
-		} else if !m.editingService {
-			features.BucketWriter = []string{}
-		}
-	} else {
-		features.BucketWriter = []string{}
-	}
-	
-	if m.selectedFeatures["mysql_access"] {
-		features.MysqlAccess = true
-	} else {
-		features.MysqlAccess = false
-	}
-	
-	if m.selectedFeatures["postgres_access"] {
-		features.PostgresAccess = true
-	} else {
-		features.PostgresAccess = false
-	}
+	// Pub/Sub Topic features
+	features.TopicPublisher = m.buildStringList("topic_publisher", features.TopicPublisher)
+	features.TopicViewer = m.buildStringList("topic_viewer", features.TopicViewer)
+	features.TopicEditor = m.buildStringList("topic_editor", features.TopicEditor)
 	
 	return features
+}
+
+// Helper to build string lists for features
+func (m Model) buildStringList(featureName string, existingList []string) []string {
+	if m.selectedFeatures[featureName] {
+		if m.detailInput != "" {
+			items := strings.Split(m.detailInput, ",")
+			for i, item := range items {
+				items[i] = strings.TrimSpace(item)
+			}
+			return items
+		} else if m.editingService {
+			// Keep existing value
+			return existingList
+		}
+	}
+	return []string{}
 }
